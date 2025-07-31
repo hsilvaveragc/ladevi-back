@@ -1,0 +1,102 @@
+version: "3.3"
+
+services:
+  ladevi_ventas_api:
+    image: ladevi_ventas_api
+    container_name: "ladevi_ventas_api"
+    build:
+      context: .
+      args:
+        - PROJECT_NAME=LadeviVentasApi
+        - CONFIGURATION=Release
+      dockerfile: Dockerfile.netcore
+    ports:
+      - "8090:80"
+    environment:
+      DefaultConnection: Server=pg_db;Database=ladevi_ventas_api_db;User Id=sa;Password=password;Port=5432;
+    env_file: .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://ladevi_ventas_api:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  #  ladevi_ventas_api_scheduler:
+  #    image: ladevi_ventas_api_scheduler
+  #    container_name: "ladevi_ventas_api_scheduler"
+  #    build:
+  #      context: .
+  #      args:
+  #        - PROJECT_NAME=Scheduler
+  #        - CONFIGURATION=Release
+  #      dockerfile: Dockerfile.netcore
+  #    ports:
+  #      - "8980:5000"
+  #    environment:
+  #      HangfireConnection: Server=pg_db;Database=ladevi_ventas_api_db_hangfire;User Id=sa;Password=password;Port=5432;
+  #    env_file: .env
+  #    restart: unless-stopped
+  #    healthcheck:
+  #      test: ["CMD", "curl", "-f", "http://ladevi_ventas_api_scheduler:5000/hangfire"]
+  #      interval: 30s
+  #      timeout: 5s
+  #      retries: 3
+
+  ladevi_ventas_api_pg_migrator:
+    image: ladevi_ventas_api_pg_migrator
+    container_name: "ladevi_ventas_api_pg_migrator"
+    build:
+      context: .
+      args:
+        - PROJECT_NAME=LadeviVentasApi
+      dockerfile: Dockerfile.migrator
+    environment:
+      DefaultConnection: Server=pg_db;Database=ladevi_ventas_api_db;User Id=sa;Password=password;Port=5432;
+
+  pg_db:
+    image: postgres:10.4
+    container_name: "pg_db"
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: sa
+      POSTGRES_DB: ladevi_ventas_api_db
+      POSTGRES_HOST: pg_db
+    volumes:
+      - dbdata:/var/lib/postgresql/10/main
+      - backup_repo:/backup_repo
+
+#  ladevi_ventas_api_pg_db_testing:
+#    image: postgres:10.4
+#    container_name: "ladevi_ventas_api_pg_db_testing"
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_PASSWORD: password
+#      POSTGRES_USER: sa
+#      POSTGRES_DB: testing_ladevi_ventas_api_db
+#      POSTGRES_HOST: ladevi_ventas_api_pg_db_testing
+
+#  ladevi_ventas_api_xunit_tests:
+#      image: ladevi_ventas_api_xunit_tests
+#      container_name: "ladevi_ventas_api_xunit_tests"
+#      environment:
+#        DefaultConnection: Server=ladevi_ventas_api_pg_db_testing;Database=ladevi_ventas_api_db;User Id=sa;Password=password;Port=5432;
+#      build:
+#        context: .
+#        args:
+#          - PROJECT_NAME=Tests
+#        dockerfile: Dockerfile.xunit
+
+networks:
+  default:
+    name: custom_network
+    external: true
+
+volumes:
+  dbdata:
+    external: true
+  backup_repo:
+    external: true

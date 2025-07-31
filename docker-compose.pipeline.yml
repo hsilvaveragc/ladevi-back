@@ -1,0 +1,32 @@
+version: "3.3"
+
+services:
+  ladevi_ventas_api_build:
+    image: 849369711646.dkr.ecr.us-east-1.amazonaws.com/ladevi:ladevi-ventas-api-${BITBUCKET_BRANCH}
+    container_name: "ladevi_ventas_api_live"
+    build:
+      context: .
+      args:
+        - PROJECT_NAME=LadeviVentasApi
+        - CONFIGURATION=Release
+      dockerfile: Dockerfile.netcore
+    ports:
+      - "80:80"
+    environment:
+      DefaultConnection: Server=pg_db_ladevi_ventas_api_live;Database=ladevi_ventas_api_db_20250505;User Id=sa;Password=password;Port=5432;
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://ladevi_ventas_api_live:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  ladevi_ventas_api_pg_migrator_live:
+    image: 849369711646.dkr.ecr.us-east-1.amazonaws.com/ladevi:ladevi-ventas-api-${BITBUCKET_BRANCH}
+    container_name: "ladevi_ventas_api_pg_migrator_live"
+    environment:
+      DefaultConnection: Server=pg_db_ladevi_ventas_api_live;Database=ladevi_ventas_api_db_20250505;User Id=sa;Password=password;Port=5432;
+
+networks:
+  default:
+    external:
+      name: custom_network

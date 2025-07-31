@@ -1,0 +1,54 @@
+image: atlassian/default-image:3
+options:      
+  docker: true
+  size: 2x
+
+definitions:
+  services:
+    docker:
+      memory: 4096
+  steps:
+    - step: &step-full-backup
+        name: Full Backup
+        script:
+          - export FULL_BACKUP=" docker exec pg_db bash -c 'rm /backup_repo/* && pg_dump -U sa --no-password --verbose --format=c --blobs "ladevi_ventas_api_db" > /backup_repo/ladevi_backup'"
+          - ssh -o "StrictHostKeyChecking=no" "${SSH_USER}@${REMOTE_HOST}" "${FULL_BACKUP}"
+    - step: &step-compress
+        name: Rename backup
+        script:
+          - export DATE_TIME=$(echo $(date '+%d%m%y_%H%M%S'))
+          - export FULL_BACKUP="cp /var/lib/docker/volumes/backup_repo/_data/ladevi_backup  /root/dbbackup/FBP_${BITBUCKET_BUILD_NUMBER}_${DATE_TIME}"
+          - ssh -o "StrictHostKeyChecking=no" "${SSH_USER}@${REMOTE_HOST}" "${FULL_BACKUP}"
+pipelines:
+  custom:
+    pipeline-unit-test-dplus-api:
+      - step:
+          name: Setup Pipeline
+          caches:
+            - docker
+          services:
+            - docker
+          script:
+            - echo "Iniciando Backup..."
+      - step: *step-full-backup
+      - step: *step-compress
+  branches:
+    '{staging_qa,feature_pipeline_main}':
+      - step:
+          name: 'Build Image'
+          caches:
+            - docker
+          services:
+            - docker
+          script:
+            - docker network create custom_network
+            - docker-compose -f docker-compose.pipeline.yml  up --force-recreate --build -d ladevi_ventas_api_build
+            - export CONTAINERS="ladevi_ventas_api_pg_migrator_live,ladevi_ventas_api_build"
+            - docker tag 849369711646.dkr.ecr.us-east-1.amazonaws.com/ladevi:ladevi-ventas-api-${BITBUCKET_BRANCH} ladevi
+            - pipe: atlassian/aws-ecr-push-image:1.5.0
+              variables:
+                IMAGE_NAME: ladevi
+                TAGS: ${BITBUCKET_REPO_SLUG}-${BITBUCKET_BRANCH}
+            - ./build-deploy-pipeline.sh
+          after-script:
+            - if [[ BITBUCKET_EXIT_CODE -eq 0 ]]; then ./utils.sh "0" "gescom-web-integrations"; else ./utils.sh "1" "gescom-web-integrations"; fi

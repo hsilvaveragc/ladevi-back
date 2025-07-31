@@ -1,0 +1,54 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
+ARG CONFIGURATION
+ARG PROJECT_NAME
+
+ENV CONFIGURATION ${CONFIGURATION}  
+ENV PROJECT_NAME ${PROJECT_NAME} 
+
+RUN echo ${CONFIGURATION}
+RUN echo ${PROJECT_NAME}
+
+RUN mkdir /myapp
+
+WORKDIR /myapp
+
+COPY  ${PROJECT_NAME}/*.csproj ./${PROJECT_NAME}/
+WORKDIR /myapp/${PROJECT_NAME}
+RUN dotnet restore
+
+WORKDIR /myapp
+COPY  ${PROJECT_NAME}/. ./${PROJECT_NAME}/
+COPY ./nuget.config ./${PROJECT_NAME}/nuget.config
+
+WORKDIR /myapp/${PROJECT_NAME}
+# RUN dotnet publish -c ${CONFIGURATION} -o /myapp/out --no-restore
+RUN dotnet publish ${PROJECT_NAME}.csproj -c ${CONFIGURATION} -o ./publish 
+
+# build runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0  AS runtime
+ARG PROJECT_NAME
+ENV PROJECT_NAME ${PROJECT_NAME} 
+RUN echo ${PROJECT_NAME}
+
+RUN apt-get update -y \
+    && mkdir -p /usr/share/man/man1 \
+    && mkdir -p /usr/share/man/man7 \
+    && apt-get install -y --no-install-recommends wget \
+    && apt-get install -y --no-install-recommends gnupg \
+    && apt-get install -y --no-install-recommends postgresql-client \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    ;
+RUN echo 'deb http://apt-archive.postgresql.org/pub/repos/apt/ stretch-pgdg main' >  /etc/apt/sources.list.d/pgdg.list
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+RUN apt-get update
+RUN yes Y | apt-get install postgresql-client-10
+
+WORKDIR /myapp
+# COPY --from=build /myapp/out .
+COPY --from=build /myapp/${PROJECT_NAME}/publish .
+EXPOSE 80
+ENV ASPNETCORE_URLS http://*:80
+# ENTRYPOINT ["dotnet", "LadeviVentasApi.dll"]
+ENTRYPOINT [ "sh", "-c", "dotnet $PROJECT_NAME.dll" ]

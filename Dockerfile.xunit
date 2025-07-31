@@ -1,0 +1,9 @@
+FROM mcr.microsoft.com/dotnet/core/sdk:2.2.300-alpine
+RUN mkdir /myapp
+ARG PROJECT_NAME
+RUN echo ${PROJECT_NAME}
+ENV PROJECT_NAME ${PROJECT_NAME} 
+WORKDIR /myapp
+COPY . /myapp
+COPY ./nuget.config /myapp/${PROJECT_NAME}/nuget.config
+CMD dotnet clean && dotnet test /myapp/${PROJECT_NAME} -v:n -nodeReuse:False

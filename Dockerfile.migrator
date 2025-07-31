@@ -1,0 +1,9 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+ARG PROJECT_NAME
+ENV PROJECT_NAME ${PROJECT_NAME} 
+RUN echo ${PROJECT_NAME}
+RUN mkdir /myapp
+WORKDIR /myapp
+COPY . /myapp
+COPY ./nuget.config /myapp/${PROJECT_NAME}/nuget.config
+ENTRYPOINT ["sh", "-c", "cd /myapp/$PROJECT_NAME/ && dotnet restore && dotnet ef database update --context ApplicationDbContext"]
