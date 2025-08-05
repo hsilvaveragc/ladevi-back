@@ -82,6 +82,80 @@ public class BillingController : ControllerBase
     }
   }
 
+  [HttpPost("PostMultiple")]
+  public async Task<IActionResult> PostMultiple([FromBody] List<InvoiceWritingDto> invoicesData)
+  {
+    if (!invoicesData?.Any() == true)
+    {
+      return BadRequest("Se requiere al menos una factura para procesar");
+    }
+
+    var results = new List<object>();
+    var errors = new List<string>();
+
+    foreach (var invoiceWriting in invoicesData)
+    {
+      try
+      {
+        ControllerContext.HttpContext.Items["current-user"] = this.currentAppUser;
+
+        var validationResult = await ValidateInvoiceRequest(invoiceWriting);
+        if (validationResult != null)
+        {
+          errors.Add($"Cliente {invoiceWriting.ClientId}: Error de validación");
+          continue;
+        }
+
+        var clientDb = await GetClientById(invoiceWriting.ClientId);
+        var xubioPointOfSale = await GetXubioPointOfSale(clientDb);
+        var billingNumber = await GetBillingNumberIfNeeded(xubioPointOfSale, clientDb, invoiceWriting);
+
+        var xubioReceipt = CreateBaseXubioReceipt(
+            clientDb,
+            xubioPointOfSale,
+            invoiceWriting.GlobalObservations,
+            billingNumber);
+
+        // Procesar según el tipo de entidad
+        var result = invoiceWriting.EntityType.ToUpper() switch
+        {
+          "CONTRACT" => await ProcessContractInvoiceForMultiple(invoiceWriting, xubioReceipt, clientDb, xubioPointOfSale),
+          "ORDER" => await ProcessOrderInvoiceForMultiple(invoiceWriting, xubioReceipt, clientDb, xubioPointOfSale),
+          _ => throw new InvalidOperationException("Tipo de entidad no válido")
+        };
+
+        results.Add(new
+        {
+          ClientId = invoiceWriting.ClientId,
+          ClientName = clientDb.BrandName,
+          Success = true,
+          NumeroDocumento = result.NumeroDocumento,
+          TransaccionId = result.TransaccionId
+        });
+      }
+      catch (Exception ex)
+      {
+        errors.Add($"Cliente {invoiceWriting.ClientId}: {ex.Message}");
+        results.Add(new
+        {
+          ClientId = invoiceWriting.ClientId,
+          Success = false,
+          Error = ex.Message
+        });
+      }
+    }
+
+    // Retornar resultados
+    return Ok(new
+    {
+      TotalProcessed = invoicesData.Count,
+      SuccessCount = results.Count(r => ((dynamic)r).Success),
+      ErrorCount = errors.Count,
+      Results = results,
+      Errors = errors
+    });
+  }
+
   #region Validation Methods
 
   private async Task<IActionResult?> ValidateInvoiceRequest(InvoiceWritingDto invoiceWriting)
@@ -165,7 +239,6 @@ public class BillingController : ControllerBase
       return "Facturas de Venta A";
     }
 
-
     if (fiscalCategory == CategoriaFiscalFixedValues.Monotributista ||
         fiscalCategory == CategoriaFiscalFixedValues.ConsumidorFinal ||
         fiscalCategory == CategoriaFiscalFixedValues.Exento ||
@@ -205,11 +278,21 @@ public class BillingController : ControllerBase
     var soldSpaceIds = GetEntityIds(invoiceWriting);
     var soldSpacesDb = await this.context.SoldSpaces
         .Include(sp => sp.Contract)
+        .ThenInclude(c => c.BillingCondition)
         .Where(s => soldSpaceIds.Contains(s.Id))
         .ToListAsync();
 
     if (!soldSpacesDb.Any())
       return BadRequest("No se encontraron espacios vendidos");
+
+    // Solo contratos anticipados deben procesarse aquí
+    var nonAnticipatedContracts = soldSpacesDb
+        .Where(ss => ss.Contract.BillingCondition.Name != BillingCondition.Anticipated)
+        .ToList();
+    if (nonAnticipatedContracts.Any())
+    {
+      return BadRequest("Hay contratos que no cumplen con la condición de facturación indicada.");
+    }
 
     ConfigureReceiptCurrency(xubioReceipt, soldSpacesDb.First().Contract.CurrencyId);
     ConfigureReceiptItems(xubioReceipt, invoiceWriting);
@@ -221,7 +304,6 @@ public class BillingController : ControllerBase
       return Utils.ActionResultForModelStateValidation(ModelState, HttpContext.Response);
     }
 
-    await UpdateSoldSpacesStatus(soldSpacesDb, xubioResponse.NumeroDocumento);
     await UpdateContractsStatus(soldSpacesDb, xubioResponse.NumeroDocumento);
 
     return Ok(new
@@ -240,11 +322,22 @@ public class BillingController : ControllerBase
     var publishingOrderIds = GetEntityIds(invoiceWriting);
     var publishingOrdersDb = await this.context.PublishingOrders
         .Include(sp => sp.Contract)
+        .ThenInclude(c => c.BillingCondition)
         .Where(s => publishingOrderIds.Contains(s.Id))
         .ToListAsync();
 
     if (!publishingOrdersDb.Any())
       return BadRequest("No se encontraron órdenes de publicación");
+
+    // Solo órdenes de contratos "Contra Publicación"
+    var invalidOrders = publishingOrdersDb
+        .Where(po => po.Contract.BillingCondition.Name != BillingCondition.AgainstPublication)
+        .ToList();
+
+    if (invalidOrders.Any())
+    {
+      return BadRequest("Hay ordenes cuyo contratos no cumplen con la condición de facturación indicada.");
+    }
 
     ConfigureReceiptCurrency(xubioReceipt, publishingOrdersDb.First().Contract.CurrencyId);
     ConfigureReceiptItems(xubioReceipt, invoiceWriting);
@@ -263,6 +356,93 @@ public class BillingController : ControllerBase
       xubioResponse.NumeroDocumento,
       xubioResponse.Transaccionid
     });
+  }
+
+  private async Task<dynamic> ProcessContractInvoiceForMultiple(
+      InvoiceWritingDto invoiceWriting,
+      ReceiptDtoRequest xubioReceipt,
+      Client clientDb,
+      PointOfSaleDtoResponse xubioPointOfSale)
+  {
+    var soldSpaceIds = GetEntityIds(invoiceWriting);
+    var soldSpacesDb = await this.context.SoldSpaces
+        .Include(sp => sp.Contract)
+        .ThenInclude(c => c.BillingCondition)
+        .Where(s => soldSpaceIds.Contains(s.Id))
+        .ToListAsync();
+
+    if (!soldSpacesDb.Any())
+      throw new InvalidOperationException("No se encontraron espacios vendidos");
+
+    // Solo contratos anticipados deben procesarse aquí
+    var nonAnticipatedContracts = soldSpacesDb
+        .Where(ss => ss.Contract.BillingCondition.Name != BillingCondition.Anticipated)
+        .ToList();
+    if (nonAnticipatedContracts.Any())
+    {
+      throw new InvalidOperationException("Hay contratos que no cumplen con la condición de facturación indicada.");
+    }
+
+    ConfigureReceiptCurrency(xubioReceipt, soldSpacesDb.First().Contract.CurrencyId);
+    ConfigureReceiptItems(xubioReceipt, invoiceWriting);
+
+    var xubioResponse = await SendReceiptToXubio(xubioReceipt, clientDb, xubioPointOfSale);
+    if (xubioResponse.Error != null)
+    {
+      throw new InvalidOperationException($"Error en Xubio: {xubioResponse.Error.Description}");
+    }
+
+    await UpdateContractsStatus(soldSpacesDb, xubioResponse.NumeroDocumento);
+
+    return new
+    {
+      NumeroDocumento = xubioResponse.NumeroDocumento,
+      TransaccionId = xubioResponse.Transaccionid
+    };
+  }
+
+  private async Task<dynamic> ProcessOrderInvoiceForMultiple(
+      InvoiceWritingDto invoiceWriting,
+      ReceiptDtoRequest xubioReceipt,
+      Client clientDb,
+      PointOfSaleDtoResponse xubioPointOfSale)
+  {
+    var publishingOrderIds = GetEntityIds(invoiceWriting);
+    var publishingOrdersDb = await this.context.PublishingOrders
+        .Include(sp => sp.Contract)
+        .ThenInclude(c => c.BillingCondition)
+        .Where(s => publishingOrderIds.Contains(s.Id))
+        .ToListAsync();
+
+    if (!publishingOrdersDb.Any())
+      throw new InvalidOperationException("No se encontraron órdenes de publicación");
+
+    // Solo órdenes de contratos "Contra Publicación"
+    var invalidOrders = publishingOrdersDb
+        .Where(po => po.Contract.BillingCondition.Name != BillingCondition.AgainstPublication)
+        .ToList();
+
+    if (invalidOrders.Any())
+    {
+      throw new InvalidOperationException("Hay ordenes cuyo contratos no cumplen con la condición de facturación indicada.");
+    }
+
+    ConfigureReceiptCurrency(xubioReceipt, publishingOrdersDb.First().Contract.CurrencyId);
+    ConfigureReceiptItems(xubioReceipt, invoiceWriting);
+
+    var xubioResponse = await SendReceiptToXubio(xubioReceipt, clientDb, xubioPointOfSale);
+    if (xubioResponse.Error != null)
+    {
+      throw new InvalidOperationException($"Error en Xubio: {xubioResponse.Error.Description}");
+    }
+
+    await UpdatePublishingOrdersStatus(publishingOrdersDb, xubioResponse.NumeroDocumento);
+
+    return new
+    {
+      NumeroDocumento = xubioResponse.NumeroDocumento,
+      TransaccionId = xubioResponse.Transaccionid
+    };
   }
 
   private static List<long> GetEntityIds(InvoiceWritingDto invoiceWriting)

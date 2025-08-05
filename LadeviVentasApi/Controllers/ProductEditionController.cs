@@ -18,20 +18,24 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
     }
 
     [HttpGet("Options")]
-    public async Task<IActionResult> Options(long productId)
+    public async Task<IActionResult> Options(long productId, bool includeClosed = true)
     {
-        var productEditions = Context.ProductEditions
-                                    .AsNoTracking()
-                                    .Where(pe => (!pe.Deleted.HasValue || !pe.Deleted.Value) && pe.ProductId == productId)
-                                    .OrderBy(pe => pe.Start)
-                                    .Select(pe => new
-                                    {
-                                        pe.Id,
-                                        pe.Name
-                                    })
-                                    .ToList();
+        var productEditionsQuery = Context.ProductEditions.AsNoTracking()
+                                                    .Where(pe => (!pe.Deleted.HasValue || !pe.Deleted.Value)
+                                                            && pe.ProductId == productId);
+        if (!includeClosed)
+        {
+            productEditionsQuery = productEditionsQuery.Where(pe => !pe.Closed);
+        }
 
-        return Ok(productEditions);
+        return Ok(await productEditionsQuery.OrderBy(pe => pe.Start)
+                                            .Select(pe => new
+                                            {
+                                                pe.Id,
+                                                pe.Name,
+                                                pe.Code,
+                                            })
+                                            .ToListAsync());
     }
 
     [HttpPost("Import")]
@@ -153,7 +157,7 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
             Errors = productImportErrors
         });
     }
-    
+
     protected override IQueryable<ProductEdition> GetQueryableWithIncludes()
     {
         bool isSupervisor = CurrentAppUser.Value.ApplicationRole.IsSupervisor();

@@ -55,6 +55,46 @@ public static class ValidationExtensions
     }
 
     /// <summary>
+    /// Verifica que una propiedad sea única en la base de datos para la entidad actual.
+    /// Excluye automáticamente el registro actual (por ID) de la verificación.
+    /// Con opción de incluir o excluir registros eliminados (soft delete).
+    /// </summary>
+    /// <typeparam name="T">Tipo de entidad que hereda de BaseEntity</typeparam>
+    /// <param name="v">Lista de validaciones existente</param>
+    /// <param name="x">Instancia actual de la entidad</param>
+    /// <param name="context">Contexto de la base de datos</param>
+    /// <param name="compare">Expresión lambda para comparar duplicados</param>
+    /// <param name="includeDeleted">Si incluir registros eliminados en la verificación (true) o excluirlos (false)</param>
+    /// <param name="msg">Mensaje personalizado (opcional, se genera automáticamente si no se provee)</param>
+    /// <param name="memberNames">Campos asociados al error</param>
+    /// <returns>La misma lista para permitir chaining</returns>
+    /// <example>
+    /// // Permitir duplicados si están eliminados
+    /// validations.CheckUnique(this, context, 
+    ///     x => x.BrandName.ToLower() == BrandName.ToLower(), 
+    ///     includeDeleted: false, 
+    ///     memberNames: new[] { nameof(BrandName) })
+    /// </example>
+    public static IList<ValidationResult> CheckUnique<T>(this IList<ValidationResult> v,
+        T x, DbContext context, Expression<Func<T, bool>> compare, bool includeDeleted,
+        string msg = null, IEnumerable<string> memberNames = null)
+     where T : BaseEntity
+    {
+        var query = context.Set<T>().Where(o => o.Id != x.Id);
+
+        if (!includeDeleted)
+        {
+            query = query.Where(o => o.Deleted != true);
+        }
+
+        if (query.Any(compare))
+        {
+            v.Add(new ValidationResult(msg ?? $"Unicidad no respetada para entidad de tipo {typeof(T).Name}", memberNames));
+        }
+        return v;
+    }
+
+    /// <summary>
     /// Ejecuta una validación personalizada que puede lanzar ValidationException.
     /// Captura automáticamente las excepciones y las convierte en ValidationResult.
     /// </summary>
