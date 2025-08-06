@@ -103,6 +103,74 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
         return Ok(editions);
     }
 
+    [HttpPost("SearchByEdition")]
+    public async Task<IActionResult> SearchByEdition([FromBody] SearchByEditionRequest request)
+    {
+        try
+        {
+            var query = Context.PublishingOrders
+                            .Include(po => po.Contract)
+                                .ThenInclude(c => c.Client)
+                            .Include(po => po.Contract)
+                                .ThenInclude(c => c.Currency)
+                            .Include(po => po.ProductEdition)
+                                .ThenInclude(pe => pe.Product)
+                            .Include(po => po.Seller)
+                            .Where(po => po.ProductEditionId == request.EditionId)
+                            .Where(po => po.XubioDocumentNumber == null) // Solo no facturadas
+                            .Where(po => !po.Deleted.HasValue || !po.Deleted.Value);
+
+            // Filtros adicionales opcionales
+            if (request.ClientId.HasValue)
+                query = query.Where(po => po.Contract.ClientId == request.ClientId.Value);
+
+            if (request.SellerId.HasValue)
+                query = query.Where(po => po.SellerId == request.SellerId.Value);
+
+            if (request.IsComturClient.HasValue)
+                query = query.Where(po => po.Contract.Client.IsComtur == request.IsComturClient.Value);
+
+            var orders = await query
+                .OrderBy(po => po.Contract.Client.BrandName)
+                .ThenBy(po => po.Contract.Number)
+                .Take(request.Take ?? 1000)
+                .Select(po => new SearchByEditionResponse
+                {
+                    Id = po.Id,
+                    OrderNumber = "0",//po.Number,
+                    ClientId = po.Contract.ClientId,
+                    ClientName = po.Contract.Client.BrandName,
+                    ContractNumber = po.Contract.Number.ToString(),
+                    ProductName = po.ProductEdition.Product.Name,
+                    EditionName = po.ProductEdition.Name,
+                    Description = "",//po.Description,
+                    Quantity = 0,//po.Quantity,
+                    Price = 0,// po.Price,
+                    Total = 0,// po.Amount,
+                    CurrencyId = po.Contract.CurrencyId,
+                    CurrencyName = po.Contract.Currency.Name,
+                    SellerId = po.SellerId,
+                    SellerName = "",//po.Seller != null ? $"{po.Seller.FirstName} {po.Seller.LastName}" : null,
+                    XubioProductId = "",//po.XubioProductId,
+                    CreatedDate = po.CreationDate.HasValue ? po.CreationDate.Value : DateTime.Now,
+                    // Campos adicionales para facturación
+                    TotalTaxes = 0,//po.TotalTaxes ?? 0,
+                    Observations = po.Observations
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Data = orders,
+                Total = orders.Count,
+                EditionId = request.EditionId
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Error al buscar órdenes por edición: {ex.Message}");
+        }
+    }
 
     public override async Task<IActionResult> Post(PublishingOrderWritingDto x)
     {
