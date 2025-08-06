@@ -22,7 +22,6 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
     public async Task<ActionResult> GetPublishingOrders(long clientId)
     {
         bool isSeller = CurrentAppUser.Value.ApplicationRole.IsSeller();
-        bool isSupervisor = CurrentAppUser.Value.ApplicationRole.IsSupervisor();
         long userId = CurrentAppUser.Value.Id;
 
         var posQuery = Context.PublishingOrders.AsNoTracking() //base.GetQueryableWithIncludes()
@@ -41,7 +40,6 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
                                     x.SoldSpace.Total != 0 &&
                                     x.ContractId.HasValue &&
                                     x.Contract.BillingConditionId == 2 &&
-                                    string.IsNullOrWhiteSpace(x.XubioDocumentNumber) &&
                                     string.IsNullOrWhiteSpace(x.XubioDocumentNumber));
         if (isSeller)
         {
@@ -103,75 +101,6 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
         return Ok(editions);
     }
 
-    [HttpPost("SearchByEdition")]
-    public async Task<IActionResult> SearchByEdition([FromBody] SearchByEditionRequest request)
-    {
-        try
-        {
-            var query = Context.PublishingOrders
-                            .Include(po => po.Contract)
-                                .ThenInclude(c => c.Client)
-                            .Include(po => po.Contract)
-                                .ThenInclude(c => c.Currency)
-                            .Include(po => po.ProductEdition)
-                                .ThenInclude(pe => pe.Product)
-                            .Include(po => po.Seller)
-                            .Where(po => po.ProductEditionId == request.EditionId)
-                            .Where(po => po.XubioDocumentNumber == null) // Solo no facturadas
-                            .Where(po => !po.Deleted.HasValue || !po.Deleted.Value);
-
-            // Filtros adicionales opcionales
-            if (request.ClientId.HasValue)
-                query = query.Where(po => po.Contract.ClientId == request.ClientId.Value);
-
-            if (request.SellerId.HasValue)
-                query = query.Where(po => po.SellerId == request.SellerId.Value);
-
-            if (request.IsComturClient.HasValue)
-                query = query.Where(po => po.Contract.Client.IsComtur == request.IsComturClient.Value);
-
-            var orders = await query
-                .OrderBy(po => po.Contract.Client.BrandName)
-                .ThenBy(po => po.Contract.Number)
-                .Take(request.Take ?? 1000)
-                .Select(po => new SearchByEditionResponse
-                {
-                    Id = po.Id,
-                    OrderNumber = "0",//po.Number,
-                    ClientId = po.Contract.ClientId,
-                    ClientName = po.Contract.Client.BrandName,
-                    ContractNumber = po.Contract.Number.ToString(),
-                    ProductName = po.ProductEdition.Product.Name,
-                    EditionName = po.ProductEdition.Name,
-                    Description = "",//po.Description,
-                    Quantity = 0,//po.Quantity,
-                    Price = 0,// po.Price,
-                    Total = 0,// po.Amount,
-                    CurrencyId = po.Contract.CurrencyId,
-                    CurrencyName = po.Contract.Currency.Name,
-                    SellerId = po.SellerId,
-                    SellerName = "",//po.Seller != null ? $"{po.Seller.FirstName} {po.Seller.LastName}" : null,
-                    XubioProductId = "",//po.XubioProductId,
-                    CreatedDate = po.CreationDate.HasValue ? po.CreationDate.Value : DateTime.Now,
-                    // Campos adicionales para facturación
-                    TotalTaxes = 0,//po.TotalTaxes ?? 0,
-                    Observations = po.Observations
-                })
-                .ToListAsync();
-
-            return Ok(new
-            {
-                Data = orders,
-                Total = orders.Count,
-                EditionId = request.EditionId
-            });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest($"Error al buscar órdenes por edición: {ex.Message}");
-        }
-    }
-
     public override async Task<IActionResult> Post(PublishingOrderWritingDto x)
     {
         x.SellerId = Context.Clients.SingleOrDefault(c => c.Id == x.ClientId).ApplicationUserSellerId;
@@ -204,6 +133,87 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
             return response;
         }
 
+    }
+
+    [HttpGet("GetPublishingOrdersByEdition/{editionId}")]
+    public async Task<ActionResult> GetPublishingOrdersByEdition(long editionId, [FromQuery] bool isComturClient = false)
+    {
+        try
+        {
+            bool isSeller = CurrentAppUser.Value.ApplicationRole.IsSeller();
+            long userId = CurrentAppUser.Value.Id;
+
+            var posQuery = Context.PublishingOrders.AsNoTracking()
+                                .Include(x => x.Client)
+                                .Include(x => x.Contract)
+                                    .ThenInclude(c => c.Product)
+                                .Include(x => x.Contract)
+                                    .ThenInclude(c => c.Currency)
+                                .Include(x => x.ProductEdition)
+                                    .ThenInclude(pe => pe.Product)
+                                .Include(x => x.ProductAdvertisingSpace)
+                                .Include(x => x.AdvertisingSpaceLocationType)
+                                .Include(x => x.SoldSpace)
+                                .Include(x => x.Seller)
+                                .Where(x => (!x.Deleted.HasValue || !x.Deleted.Value) &&
+                                        x.Client.XubioId.HasValue &&
+                                        x.ProductEditionId == editionId && // Filtro principal por edición
+                                        x.SoldSpace.Total != 0 &&
+                                        x.ContractId.HasValue &&
+                                        x.Contract.BillingConditionId == 2 &&
+                                        string.IsNullOrWhiteSpace(x.XubioDocumentNumber) &&
+                                        x.Client.IsComtur == isComturClient);
+            if (isSeller)
+            {
+                var clients = Context.Clients.Where(c => c.ApplicationUserSellerId == userId).Select(c => c.Id);
+
+                if (clients.Any())
+                {
+                    posQuery = posQuery.Where(x => clients.Contains(x.ClientId));
+                }
+            }
+
+            var orders = await posQuery
+                .OrderBy(x => x.Client.BrandName)
+                .ThenBy(x => x.Contract.Number)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.ClientId,
+                    ClientBrandName = x.Client.BrandName,
+                    ClientLegalName = x.Client.LegalName,
+                    x.ContractId,
+                    ContractNumber = x.Contract.Number,
+                    ContractName = x.Contract.Name,
+                    x.ProductEdition.ProductId,
+                    ProductName = x.ProductEdition.Product.Name,
+                    x.ProductEditionId,
+                    ProductEditionName = x.ProductEdition.Name,
+                    x.ProductAdvertisingSpaceId,
+                    ProductAdvertisingSpaceName = x.ProductAdvertisingSpace.Name,
+                    x.AdvertisingSpaceLocationTypeId,
+                    AdvertisingSpaceLocationTypeName = x.AdvertisingSpaceLocationType.Name,
+                    x.Quantity,
+                    x.Contract.CurrencyId,
+                    CurrencyName = x.Contract.UseEuro ? "EUR" : x.Contract.Currency.Name,
+                    Total = x.Latent ? 0 : x.Contract.SoldSpaces.FirstOrDefault(y => y.Id == x.SoldSpaceId).UnitPriceWithDiscounts * x.Quantity,
+                    TotalTaxes = x.Latent ? 0 : x.Contract.SoldSpaces.FirstOrDefault(y => y.Id == x.SoldSpaceId).TotalTaxes * x.Quantity,
+                    x.SellerId,
+                    SellerFullName = x.Seller.FullName,
+                    x.Observations,
+                    // Campos adicionales necesarios para la facturación
+                    XubioProductId = x.ProductEdition.Product.XubioProductCode,
+                    x.PageNumber,
+                    x.CreationDate
+                })
+                .ToListAsync();
+
+            return Ok(orders);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Error al obtener órdenes por edición: {ex.Message}");
+        }
     }
 
     public override async Task<IActionResult> Put(long id, PublishingOrderWritingDto x)
