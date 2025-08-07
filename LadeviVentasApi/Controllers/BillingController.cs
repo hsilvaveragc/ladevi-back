@@ -517,7 +517,7 @@ public class BillingController : ControllerBase
         {
             new()
             {
-                Producto = new ProductoRequest { Codigo = invoiceWriting.Items.First().XubioProductId },
+                Producto = new ProductoRequest { Codigo = invoiceWriting.Items.First().XubioProductCode },
                 Descripcion = consolidatedObservations,
                 Cantidad = 1,
                 Precio =  totalAmount ,
@@ -529,7 +529,7 @@ public class BillingController : ControllerBase
   {
     receipt.TransaccionProductoItems = invoiceWriting.Items.Select(item => new TransaccionProductoItemRequest
     {
-      Producto = new ProductoRequest { Codigo = item.XubioProductId },
+      Producto = new ProductoRequest { Codigo = item.XubioProductCode },
       Descripcion = item.Observations,
       Cantidad = item.Quantity,
       Precio = item.Price

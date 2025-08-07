@@ -51,7 +51,7 @@ public class InvoiceItemDto
     /// <summary>
     /// ID del producto de Xubio a utilizar para este ítem
     /// </summary>
-    public string XubioProductId { get; set; }
+    public string XubioProductCode { get; set; }
 
     /// <summary>
     /// Cantidad de unidades de este detalle

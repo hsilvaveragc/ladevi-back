@@ -186,6 +186,7 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
                     ContractNumber = x.Contract.Number,
                     ContractName = x.Contract.Name,
                     x.ProductEdition.ProductId,
+                    XubioProductCode = !x.Client.IsComtur ? x.ProductEdition.Product.XubioProductCode : x.ProductEdition.Product.ComturXubioProductCode,
                     ProductName = x.ProductEdition.Product.Name,
                     x.ProductEditionId,
                     ProductEditionName = x.ProductEdition.Name,
@@ -202,7 +203,6 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
                     SellerFullName = x.Seller.FullName,
                     x.Observations,
                     // Campos adicionales necesarios para la facturación
-                    XubioProductId = x.ProductEdition.Product.XubioProductCode,
                     x.PageNumber,
                     x.CreationDate
                 })
