@@ -34,6 +34,7 @@ namespace LadeviVentasApi.Models.Domain
         public DateTime? LastUpdate { get; set; }
         public bool CanDelete { get { return ProductEdition != null && !ProductEdition.Closed; } }
         public string? XubioDocumentNumber { get; set; }
+        public long? XubioTransactionId { get; set; }
 
         protected override IList<ValidationResult> PerformValidate(ValidationContext validationContext, ApplicationDbContext context, Lazy<ApplicationUser> applicationUser)
         {
@@ -159,9 +160,9 @@ namespace LadeviVentasApi.Models.Domain
                     throw new ValidationExtensions.ValidationException("El producto asignado tiene que ser el mismo producto del contrato", new[] { nameof(currentProduct.Id) });
                 }
 
-                if (currentContract.End < DateTime.Now)
+                if ((Id == 0 || (oldOP.ContractId != ContractId && !user.ApplicationRole.IsSuperuser())) && currentContract.End < DateTime.Now)
                 {
-                    throw new ValidationExtensions.ValidationException("El contrato seleccionado esta vencido", new[] { nameof(currentProduct.Id) });
+                    throw new ValidationExtensions.ValidationException("El contrato seleccionado esta vencido", new[] { nameof(ContractId) });
                 }
 
                 /* if (currentContract.BillingCondition.IsAnticipated())

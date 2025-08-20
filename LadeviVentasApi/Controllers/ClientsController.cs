@@ -185,7 +185,7 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
   }
 
   [HttpGet("OptionsFull")]
-  public async Task<IActionResult> OptionsFull(bool onlyArgentina = false, bool onlyComtur = false)
+  public async Task<IActionResult> OptionsFull(bool onlyArgentina = false, bool onlyComtur = false, bool onlyEnabled = false)
   {
     bool isSeller = CurrentAppUser.Value.ApplicationRole.IsSeller();
     long userId = CurrentAppUser.Value.Id;
@@ -208,6 +208,11 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
     if (onlyComtur)
     {
       allClientsQuery = allClientsQuery.Where(c => c.IsComtur && c.BillingPointOfSale == "99");
+    }
+
+    if (onlyEnabled)
+    {
+      allClientsQuery = allClientsQuery.Where(c => c.IsEnabled);
     }
 
     var allClientsOptions = await allClientsQuery.Select(x => new

@@ -15,10 +15,12 @@ using LadeviVentasApi.Services.Xubio;
 public class ProductsController : RestController<Product, ProductWritingDto>
 {
     private readonly XubioService xubioService;
+    private readonly IConfiguration configuration;
 
-    public ProductsController(ApplicationDbContext context, IMapper mapper, XubioService xubioService) : base(context, mapper)
+    public ProductsController(ApplicationDbContext context, IMapper mapper, XubioService xubioService, IConfiguration configuration) : base(context, mapper)
     {
         this.xubioService = xubioService;
+        this.configuration = configuration;
     }
 
     public override async Task<IActionResult> Put(long id, ProductWritingDto x)
@@ -275,8 +277,36 @@ public class ProductsController : RestController<Product, ProductWritingDto>
     [HttpGet("GetXubioProducts")]
     public async Task<IActionResult> GetXubioProducts(bool? isComtur)
     {
-        var xubioProducts = (await this.xubioService.GetProductsAsync(!isComtur.HasValue ? false : isComtur.Value)).Select(p => new { Code = p.Codigo, Name = p.Nombre }).ToList();
+        var xubioProducts = (await this.xubioService.GetProductsAsync(!isComtur.HasValue ? false : isComtur.Value)).Select(p => new { Code = p.Codigo, Name = p.Nombre })
+                            .Where(p => p.Code != this.configuration["XubioGenericProductCode"])
+                            .ToList();
         return Ok(xubioProducts);
+    }
+
+    /// <summary>
+    /// Obtener el producto "Pauta Multiplataforma" para facturación consolidada
+    /// </summary>
+    [HttpGet("GetXubioGenericProductCode")]
+    public async Task<IActionResult> GetXubioGenericProductCode(bool? isComtur)
+    {
+        try
+        {
+            var xubioProducts = (await this.xubioService.GetProductsAsync(!isComtur.HasValue ? false : isComtur.Value)).Select(p => new { Code = p.Codigo, Name = p.Nombre }).ToList();
+            var xubioGenericProductCode = xubioProducts.FirstOrDefault(xp => xp.Code == this.configuration["XubioGenericProductCode"]);
+            if (xubioGenericProductCode == null)
+            {
+                return NotFound(new
+                {
+                    message = "Producto 'Pauta Multiplataforma' no encontrado",
+                    suggestion = "Por favor, cree el producto 'Pauta Multiplataforma' en el ABM de productos"
+                });
+            }
+            return Ok(xubioGenericProductCode);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
     }
 
     protected override IQueryable<Product> GetQueryableWithIncludes()

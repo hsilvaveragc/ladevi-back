@@ -54,6 +54,7 @@ namespace LadeviVentasApi.Models.Domain
         public string Observations { get; set; }
         public double? CurrencyParity { get; set; }
         public double? IVA { get; set; }
+        public long? XubioTransactionId { get; set; }
 
         [MustHaveOne] public ICollection<SoldSpace> SoldSpaces { get; set; }
         public ICollection<PublishingOrder>? PublishingOrders { get; set; }

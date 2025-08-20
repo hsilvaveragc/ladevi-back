@@ -525,6 +525,9 @@ namespace LadeviVentasApi.Data.Migrations
                     b.Property<bool>("UseEuro")
                         .HasColumnType("boolean");
 
+                    b.Property<long?>("XubioTransactionId")
+                        .HasColumnType("bigint");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BillingConditionId");
@@ -1213,6 +1216,9 @@ namespace LadeviVentasApi.Data.Migrations
 
                     b.Property<string>("XubioDocumentNumber")
                         .HasColumnType("text");
+
+                    b.Property<long?>("XubioTransactionId")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 

@@ -57,7 +57,8 @@ public class ContractController : RestController<Contract, ContractWritingDto>
                 c.Client.XubioId.HasValue &&
                 c.BillingConditionId == 1 &&
                 c.End >= DateTime.Now &&
-                c.SoldSpaces.Any(sp => string.IsNullOrWhiteSpace(sp.XubioDocumentNumber)))
+                string.IsNullOrWhiteSpace(c.InvoiceNumber) &&
+                c.SoldSpaces.Any(sp => (!sp.Deleted.HasValue || !sp.Deleted.Value) && string.IsNullOrWhiteSpace(sp.XubioDocumentNumber)))
             .Select(c => new
             {
                 c.Id,
@@ -72,7 +73,7 @@ public class ContractController : RestController<Contract, ContractWritingDto>
                 Balance = c.SoldSpaces.Select(sp => sp.Balance),
                 c.End,
                 CurrencyName = c.UseEuro ? "EUR" : c.Currency.Name,
-                SoldSpaces = c.SoldSpaces.Where(sp => string.IsNullOrWhiteSpace(sp.XubioDocumentNumber)).Select(sp => new
+                SoldSpaces = c.SoldSpaces.Where(sp => (!sp.Deleted.HasValue || !sp.Deleted.Value) && string.IsNullOrWhiteSpace(sp.XubioDocumentNumber)).Select(sp => new
                 {
                     sp.Id,
                     ProductAdvertisingSpaceName = sp.ProductAdvertisingSpace.Name,

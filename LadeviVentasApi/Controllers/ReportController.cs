@@ -41,72 +41,38 @@ public class ReportController : ControllerBase
     {
         bool isSupervisor = CurrentAppUser.Value.ApplicationRole.IsSupervisor();
 
-
         List<PendientContractDto> data = Context.Contracts
-            .Join(
-                Context.SoldSpaces,
-                c => c.Id,
-                sp => sp.ContractId,
-                (c, sp) => new { Contract = c, SoldSpace = sp }
+            .Include(c => c.SoldSpaces)
+                .ThenInclude(sp => sp.ProductAdvertisingSpace)
+            .Include(c => c.Client)
+            .Include(c => c.Currency)
+            .Include(c => c.BillingCondition)
+            .Where(c =>
+                (param.SellerId == -1 || c.SellerId == param.SellerId) &
+                ((param.ClienteId == -1 && c.Client.CountryId == CurrentAppUser.Value.CountryId) || c.ClientId == param.ClienteId) &&
+                ((param.Date.HasValue && c.Start.Date <= param.Date.Value.Date) || !param.Date.HasValue) &&
+                ((param.Date.HasValue && c.End.Date >= param.Date.Value.Date) || !param.Date.HasValue) &&
+                (!c.Deleted.HasValue || !c.Deleted.Value)
             )
-            .Join(
-                Context.ProductAdvertisingSpaces,
-                csp => csp.SoldSpace.ProductAdvertisingSpaceId,
-                pas => pas.Id,
-                (csp, pas) => new { csp.Contract, csp.SoldSpace, ProductAdvertisingSpaces = pas }
-            )
-            .Join(
-                Context.Clients,
-                csppas => csppas.Contract.ClientId,
-                cl => cl.Id,
-                (csppas, cl) => new { csppas.Contract, csppas.SoldSpace, csppas.ProductAdvertisingSpaces, Cliente = cl }
-            )
-            .Join(
-                Context.Currency,
-                csppascl => csppascl.Contract.CurrencyId,
-                cu => cu.Id,
-                (csppascl, cu) => new { csppascl.Contract, csppascl.SoldSpace, csppascl.ProductAdvertisingSpaces, csppascl.Cliente, Currency = cu }
-            )
-            .Join(
-                Context.BillingConditions,
-                csppasclcu => csppasclcu.Contract.BillingConditionId,
-                bc => bc.Id,
-                (csppasclcu, bc) => new
-                {
-                    csppasclcu.Contract,
-                    csppasclcu.SoldSpace,
-                    csppasclcu.ProductAdvertisingSpaces,
-                    csppasclcu.Cliente,
-                    csppasclcu.Currency,
-                    BillingCondition = bc
-                }
-            )
-            .Where(x =>
-                (param.SellerId == -1 || x.Contract.SellerId == param.SellerId) &&
-                ((param.ClienteId == -1 && x.Contract.Client.CountryId == CurrentAppUser.Value.CountryId) || x.Contract.ClientId == param.ClienteId) &&
-                ((param.Date.HasValue && x.Contract.Start.Date <= param.Date.Value.Date) || !param.Date.HasValue) &&
-                ((param.Date.HasValue && x.Contract.End.Date >= param.Date.Value.Date) || !param.Date.HasValue) &&
-                (!x.Contract.Deleted.HasValue || !x.Contract.Deleted.Value)
-            )
-            .Select(x => new PendientContractDto
+            .SelectMany(c => c.SoldSpaces.Select(sp => new PendientContractDto
             {
-                ClienteId = x.Contract.ClientId,
-                Client = x.Cliente.BrandName + " " + x.Cliente.LegalName,
-                Numero = x.Contract.Number.ToString(),
-                Contrato = x.Contract.Name,
-                SpaceTypeId = x.ProductAdvertisingSpaces.Id,
-                SpaceType = x.ProductAdvertisingSpaces.Name,
-                SoldSpaceId = x.SoldSpace.Id,
-                Quantity = x.SoldSpace.Quantity,
-                Invoice = x.Contract.InvoiceNumber,
-                BillingCondition = x.Contract == null ? "" :
-                (x.Contract.BillingCondition.Name == BillingCondition.AgainstPublication ? "F" :
-                (x.Contract.BillingCondition.Name == BillingCondition.Anticipated ? "A" :
-                (x.Contract.BillingCondition.Name == BillingCondition.NoFee ? "S" : "C"))),
-                SubTotal = x.SoldSpace.SubTotal,
-                Descuentos = x.SoldSpace.TotalDiscounts,
-                Moneda = x.Contract.UseEuro ? "EUR" : x.Currency.Name
-            }).ToList();
+                ClienteId = c.ClientId,
+                Client = c.Client.BrandName + " " + c.Client.LegalName,
+                Numero = c.Number.ToString(),
+                Contrato = c.Name,
+                SpaceTypeId = sp.ProductAdvertisingSpace.Id,
+                SpaceType = sp.ProductAdvertisingSpace.Name,
+                SoldSpaceId = sp.Id,
+                Quantity = sp.Quantity,
+                Invoice = c.InvoiceNumber,
+                BillingCondition = c.BillingCondition == null ? "" :
+                (c.BillingCondition.Name == BillingCondition.AgainstPublication ? "F" :
+                (c.BillingCondition.Name == BillingCondition.Anticipated ? "A" :
+                (c.BillingCondition.Name == BillingCondition.NoFee ? "S" : "C"))),
+                SubTotal = sp.SubTotal,
+                Descuentos = sp.TotalDiscounts,
+                Moneda = c.UseEuro ? "EUR" : c.Currency.Name
+            })).ToList();
 
 
         var soldSpaceIds = data.Select(x => x.SoldSpaceId).ToList();

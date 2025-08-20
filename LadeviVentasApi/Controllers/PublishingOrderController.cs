@@ -18,64 +18,6 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
     {
     }
 
-    [HttpGet("GetPublishingOrdersByClient/{clientId}")]
-    public async Task<ActionResult> GetPublishingOrders(long clientId)
-    {
-        bool isSeller = CurrentAppUser.Value.ApplicationRole.IsSeller();
-        long userId = CurrentAppUser.Value.Id;
-
-        var posQuery = Context.PublishingOrders.AsNoTracking() //base.GetQueryableWithIncludes()
-                            .Include(x => x.Client)
-                            .Include(x => x.Contract)
-                                .ThenInclude(c => c.Product)
-                               .Include(x => x.Contract)
-                                .ThenInclude(c => c.Currency)
-                            .Include(x => x.ProductEdition)
-                            .Include(x => x.ProductAdvertisingSpace)
-                            .Include(x => x.AdvertisingSpaceLocationType)
-                            .Include(x => x.SoldSpace)
-                            .Where(x => (!x.Deleted.HasValue || !x.Deleted.Value) &&
-                                    x.Client.XubioId.HasValue &&
-                                    x.ClientId == clientId &&
-                                    x.SoldSpace.Total != 0 &&
-                                    x.ContractId.HasValue &&
-                                    x.Contract.BillingConditionId == 2 &&
-                                    string.IsNullOrWhiteSpace(x.XubioDocumentNumber));
-        if (isSeller)
-        {
-            var client = Context.Clients.SingleOrDefault(c => (!isSeller || c.ApplicationUserSellerId == userId) && c.Id == clientId);
-            if (client == null)
-            {
-                return NotFound();
-            }
-        }
-        posQuery = posQuery.Where(x => x.ClientId == clientId);
-
-        return Ok(posQuery.Select(x => new
-        {
-            x.Id,
-            ClientBrandName = x.Client.BrandName,
-            x.ContractId,
-            ContractNumber = x.Contract.Number,
-            ContracName = x.Contract.Name,
-            x.Contract.ProductId,
-            x.Contract.Product.XubioProductCode,
-            x.Contract.Product.ComturXubioProductCode,
-            ProductName = x.Contract.Product.Name,
-            ProductEditionId = x.ProductEdition.Id,
-            ProductEditionName = x.ProductEdition.Name,
-            ProductAdvertisingSpaceName = x.ProductAdvertisingSpace.Name,
-            AdvertisingSpaceLocationTypeName = x.AdvertisingSpaceLocationType.Name,
-            x.Quantity,
-            CurrencyName = x.Contract == null ? "" : x.Contract.UseEuro ? "EUR" : x.Contract.Currency.Name,
-            Total = x.Latent ? 0 : x.Contract.SoldSpaces.FirstOrDefault(y => y.Id == x.SoldSpaceId).UnitPriceWithDiscounts * x.Quantity,
-            TotalTaxes = x.Latent ? 0 : x.Contract.SoldSpaces.FirstOrDefault(y => y.Id == x.SoldSpaceId).TotalTaxes * x.Quantity,
-            x.SellerId,
-            SellerFullName = x.Seller.FullName,
-        })
-          .ToList());
-    }
-
     [HttpGet("GetEditionsForOP/{productId}/{editionId}")]
     public async Task<IActionResult> GetEditionsForOP(long productId, long editionId)
     {
