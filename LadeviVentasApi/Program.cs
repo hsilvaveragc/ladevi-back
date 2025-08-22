@@ -230,7 +230,12 @@ namespace LadeviVentasApi
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "Ladevi Ventas API V1");
             });
-            app.UseHttpsRedirection();
+
+            // Solo usar HTTPS redirection en producción
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseAuthentication();
             app.UseAuthorization();

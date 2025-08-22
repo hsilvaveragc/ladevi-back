@@ -79,8 +79,9 @@ public class ContractController : RestController<Contract, ContractWritingDto>
                     ProductAdvertisingSpaceName = sp.ProductAdvertisingSpace.Name,
                     AdvertisingSpaceLocationTypeName = sp.AdvertisingSpaceLocationType.Name,
                     sp.Quantity,
-                    total = sp.SubTotal - sp.TotalDiscounts,
-                    totalTaxes = sp.TotalTaxes,
+                    Total = sp.SubTotal - sp.TotalDiscounts,
+                    sp.TotalTaxes,
+                    sp.UnitPriceWithDiscounts
                 })
             })
             .ToList();
@@ -103,7 +104,8 @@ public class ContractController : RestController<Contract, ContractWritingDto>
             c.Id,
             c.BrandName,
             c.LegalName,
-            c.IsEnabled
+            c.IsEnabled,
+            c.ApplicationUserSellerId
         })
         .ToList();
 

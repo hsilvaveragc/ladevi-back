@@ -146,7 +146,8 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
                     x.Observations,
                     // Campos adicionales necesarios para la facturación
                     x.PageNumber,
-                    x.CreationDate
+                    x.CreationDate,
+                    UnitPriceWithDiscounts = x.Latent ? 0 : x.Contract.SoldSpaces.FirstOrDefault(y => y.Id == x.SoldSpaceId).UnitPriceWithDiscounts,
                 })
                 .ToListAsync();
 
