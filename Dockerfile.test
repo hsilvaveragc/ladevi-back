@@ -1,0 +1,43 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 80
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Instalar EF tools en la etapa de build
+RUN dotnet tool install --global dotnet-ef --version 8.0.0
+ENV PATH="$PATH:/root/.dotnet/tools"
+
+# Trabajar con la solución completa
+COPY ["LadeviVentasApi.sln", "."]
+COPY ["LadeviVentasApi/LadeviVentasApi.csproj", "LadeviVentasApi/"]
+RUN dotnet restore "LadeviVentasApi/LadeviVentasApi.csproj"
+
+# Copiar todo el código
+COPY . .
+
+# Build el proyecto principal
+RUN dotnet build "LadeviVentasApi/LadeviVentasApi.csproj" -c Release
+
+FROM build AS publish
+RUN dotnet publish "LadeviVentasApi/LadeviVentasApi.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+
+# Instalar solo el runtime de .NET y PostgreSQL client
+RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+
+# Copiar la aplicación publicada
+COPY --from=publish /app/publish .
+
+# Copiar EF tools desde la etapa de build
+COPY --from=build /root/.dotnet/tools /root/.dotnet/tools
+ENV PATH="$PATH:/root/.dotnet/tools"
+
+# Copiar script
+COPY init-test-db.sh /app/
+RUN chmod +x /app/init-test-db.sh
+
+ENTRYPOINT ["/app/init-test-db.sh"]

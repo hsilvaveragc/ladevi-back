@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration>
+  <CodeCoverage>
+    <ModulePaths>
+      <Include>
+        <ModulePath>.*LadeviVentasApi\.dll$</ModulePath>
+      </Include>
+      <Exclude>
+        <ModulePath>.*LadeviVentasApi\.Tests\.dll$</ModulePath>
+      </Exclude>
+    </ModulePaths>
+    
+    <Sources>
+      <Exclude>
+        <Source>.*\\Migrations\\.*</Source>
+        <Source>.*\\Data\\Migrations\\.*</Source>
+        <Source>.*ModelSnapshot\.cs$</Source>
+      </Exclude>
+    </Sources>
+    
+    <Attributes>
+      <Exclude>
+        <Attribute>^System\.ObsoleteAttribute$</Attribute>
+        <Attribute>^System\.CodeDom\.Compiler\.GeneratedCodeAttribute$</Attribute>
+      </Exclude>
+    </Attributes>
+  </CodeCoverage>
+</Configuration>
