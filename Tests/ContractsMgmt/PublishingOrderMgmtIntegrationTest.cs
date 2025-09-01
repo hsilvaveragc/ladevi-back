@@ -1,4 +1,5 @@
 ﻿using LadeviVentasApi.Controllers;
+using LadeviVentasApi.DTOs;
 using LadeviVentasApi.Models.Domain;
 using System;
 using System.Collections.Generic;
@@ -36,7 +37,7 @@ namespace Tests.ContractsMgmt
                 shouldSucceed: false
             ).Result;
             Assert.NotNull(error01["errors"]["clientId"]);*/
-            
+
             //Fixture.CurrentUser = "admin";
             //Order de publicación inválida con edición cerrada
             /*var productEditionId = Fixture.SearchByAttr<ProductEdition, ProductEditionController>(nameof(ProductEdition.Code), "A01").First().Id;
@@ -46,7 +47,7 @@ namespace Tests.ContractsMgmt
                 shouldSucceed: false
             ).Result;
             Assert.NotNull(error02["errors"]["productEditionId"]);*/
-            
+
         }
 
         public PublishingOrderWritingDto GetValidPublishingOrder(Action<PublishingOrderWritingDto> postBuild = null)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using LadeviVentasApi.Controllers;
+using LadeviVentasApi.DTOs;
 using LadeviVentasApi.Models.Domain;
 using Tests.Auth;
 using Xunit;

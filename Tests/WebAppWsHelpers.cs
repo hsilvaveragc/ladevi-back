@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Net.Http;
-using Kendo.DynamicLinq;
+using KendoNET.DynamicLinq;
 using LadeviVentasApi.Models;
 using Microsoft.AspNetCore.Mvc;
 

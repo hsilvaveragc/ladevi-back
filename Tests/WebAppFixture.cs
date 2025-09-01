@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Net.Http;
+﻿using System.Diagnostics;
 using System.Text;
-using System.Threading.Tasks;
 using LadeviVentasApi;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
@@ -15,7 +11,7 @@ namespace Tests
 {
     public abstract class WebAppFixture : IDisposable
     {
-        public CustomWebApplicationFactory<Startup> Factory { get; set; }
+        public CustomWebApplicationFactory<Program> Factory { get; set; }
         public HttpClient Client { get; }
         public LinkGenerator LinkGenerator { get; }
         public string CurrentUser { get; set; }
@@ -23,7 +19,7 @@ namespace Tests
 
         protected WebAppFixture()
         {
-            Factory = new CustomWebApplicationFactory<Startup>();
+            Factory = new CustomWebApplicationFactory<Program>();
             Client = Factory.CreateClient();
             LinkGenerator = ((LinkGenerator)Factory.Server.Host.Services.GetService(
                 typeof(LinkGenerator)));
