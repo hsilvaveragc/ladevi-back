@@ -22,37 +22,27 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
     this.xubioService = xubioService;
   }
 
-  public override async Task<IActionResult> Post(ClientWritingDto clientWriting)
+  public override async Task<IActionResult> Post(ClientWritingDto x)
   {
     try
     {
       ControllerContext.HttpContext.Items["current-user"] = CurrentAppUser;
 
-      var clientDb = Mapper.Map<Client>(clientWriting);
+      var clientDb = Mapper.Map<Client>(x);
 
       TryValidateModel(clientDb);
+      if (!ModelState.IsValid) return ActionResultForModelStateValidation();
 
-      if (!ModelState.IsValid)
-      {
-        return ActionResultForModelStateValidation();
-      }
-
-      // Comenzar transacción para garantizar consistencia
       using var transaction = await Context.Database.BeginTransactionAsync();
 
       try
       {
-        // Paso 1: Guardar cliente en BD local
         Context.Add(clientDb);
         await Context.SaveChangesAsync();
 
-        // Paso 2: Crear/vincular en Xubio
         await ProcessXubioIntegration(clientDb);
 
-        // Paso 3: Registrar auditoría
         await RegisterAuditoryRecord(clientDb, "Creación");
-
-        // Confirmar transacción
         await transaction.CommitAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = clientDb.Id },
@@ -66,14 +56,10 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
     }
     catch (ValidationExtensions.ValidationException ex)
     {
-      // Mapear errores específicos de ValidationExtensions a campos
       return HandleValidationException(ex);
     }
     catch (Exception ex)
     {
-      // Log del error para diagnóstico
-      // _logger.LogError(ex, "Error al crear cliente");
-
       return HandleGenericException(ex);
     }
   }
@@ -88,6 +74,7 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
 
       var clientToUpdate = Mapper.Map<Client>(x);
       var oldEntity = GetByIdNoTracking(id);
+      clientToUpdate.Id = id;
 
       // Validación inicial
       TryValidateModel(clientToUpdate);
@@ -323,6 +310,114 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
     }
   }
 
+  // Crear cliente y asociar en una sola operación:
+  [HttpPost("CreateAndAssociate")]
+  public async Task<IActionResult> CreateAndAssociate([FromBody] CreateOrEditAndAssociateDto request)
+  {
+    try
+    {
+      ControllerContext.HttpContext.Items["current-user"] = CurrentAppUser;
+
+      var clientDb = Mapper.Map<Client>(request.ClientData);
+
+      TryValidateModel(clientDb);
+      if (!ModelState.IsValid) return ActionResultForModelStateValidation();
+
+      using var transaction = await Context.Database.BeginTransactionAsync();
+
+      try
+      {
+        // Crear cliente sin validación Xubio
+        Context.Add(clientDb);
+        await Context.SaveChangesAsync();
+
+        // Asociar directamente con el XubioId proporcionado
+        clientDb.XubioId = request.XubioId;
+        Context.Update(clientDb);
+        await Context.SaveChangesAsync();
+
+        await RegisterAuditoryRecord(clientDb, "Creación");
+        await transaction.CommitAsync();
+
+        return CreatedAtAction(nameof(GetById), new { id = clientDb.Id },
+            Mapper.Map<ClientWritingDto>(clientDb));
+      }
+      catch (Exception)
+      {
+        await transaction.RollbackAsync();
+        throw;
+      }
+    }
+    catch (ValidationExtensions.ValidationException ex)
+    {
+      return HandleValidationException(ex);
+    }
+    catch (Exception ex)
+    {
+      return HandleGenericException(ex);
+    }
+  }
+
+  // Endpoint simple para confirmar asociación
+  [HttpPut("EditAndAssociate/{id}")]
+  public async Task<IActionResult> EditAndAssociate(long id, [FromBody] CreateOrEditAndAssociateDto x)
+  {
+    try
+    {
+      ControllerContext.HttpContext.Items["current-user"] = CurrentAppUser;
+
+      if (id != x.ClientData.Id) return BadRequest();
+
+      var clientToUpdate = Mapper.Map<Client>(x.ClientData);
+      var oldEntity = GetByIdNoTracking(id);
+      clientToUpdate.Id = id;
+      clientToUpdate.XubioId = x.XubioId;
+
+      // Validación inicial
+      TryValidateModel(clientToUpdate);
+      if (!ModelState.IsValid) return ActionResultForModelStateValidation();
+
+      // Usar transacción para consistencia
+      using var transaction = await Context.Database.BeginTransactionAsync();
+
+      try
+      {
+        // Detach local entity si existe
+        var local = Context.Set<Client>()
+                    .Local
+                    .FirstOrDefault(entry => entry.Id.Equals(id));
+
+        if (local != null)
+        {
+          Context.Entry(local).State = EntityState.Detached;
+        }
+
+        // Actualizar cliente
+        Context.Entry(clientToUpdate).State = EntityState.Modified;
+        await Context.SaveChangesAsync();
+
+        // Registrar auditoría
+        await RegisterAuditoryRecord(clientToUpdate, "Modificación", oldEntity);
+
+        await transaction.CommitAsync();
+        return NoContent();
+      }
+      catch (Exception)
+      {
+        await transaction.RollbackAsync();
+        throw;
+      }
+    }
+    catch (ValidationExtensions.ValidationException ex)
+    {
+      return HandleValidationException(ex);
+    }
+    catch (Exception ex)
+    {
+      return HandleGenericException(ex);
+    }
+  }
+
   protected override IQueryable<Client> GetQueryableWithIncludes()
   {
     bool isSeller = CurrentAppUser.Value.ApplicationRole.IsSeller();
@@ -406,7 +501,7 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
       // Cliente ya existe en Xubio
       var existingXubioClient = xubioClients.First();
 
-      // VALIDACIÓN AGREGADA: Verificar si ya existe un cliente local con ese XubioId
+      // MODIFICACIÓN: Verificar si ya existe un cliente local con ese XubioId
       var existingLocalClient = await Context.Clients
           .Where(c => c.XubioId == existingXubioClient.ClientId &&
                      c.Id != clientDb.Id && // Excluir el cliente actual
@@ -415,12 +510,10 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
 
       if (existingLocalClient != null)
       {
-        // Ya existe un cliente local asociado a este XubioId
-        ValidationExtensions.ThrowIfInvalid(true,
-            $"Ya existe un cliente en el sistema asociado a este CUIT en Xubio. " +
-            $"Cliente existente: '{existingLocalClient.BrandName} - {existingLocalClient.LegalName}'. " +
-            $"No es posible crear un cliente duplicado con el mismo número de identificación.",
-            "identificationValue");
+        // CAMBIO: En vez de lanzar error normal, lanzar error especial
+        throw new ValidationExtensions.ValidationException(
+            $"DUPLICATE_CUIT|{existingXubioClient.ClientId}|{existingLocalClient.LegalName}|{clientDb.IdentificationValue}",
+            new[] { "identificationValue" });
       }
 
       // Si no hay conflicto, vincular con el XubioId existente
@@ -483,10 +576,9 @@ public class ClientsController : RestControlleV2<Client, ClientWritingDto>
 
       if (existingLocalClient != null)
       {
-        ValidationExtensions.ThrowIfInvalid(true,
-            $"No se puede cambiar el CUIT porque ya existe otro cliente vinculado a este número en Xubio. " +
-            $"Cliente existente: '{existingLocalClient.BrandName} - {existingLocalClient.LegalName}'.",
-            "identificationValue");
+        throw new ValidationExtensions.ValidationException(
+            $"DUPLICATE_CUIT|{existingXubioClient.ClientId}|{existingLocalClient.LegalName}|{existingLocalClient.IdentificationValue}",
+            new[] { "identificationValue" });
       }
 
       // Si no hay conflicto, actualizar XubioId

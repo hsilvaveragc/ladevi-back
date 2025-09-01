@@ -21,23 +21,15 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
     [HttpGet("GetEditionsForOP/{productId}/{editionId}")]
     public async Task<IActionResult> GetEditionsForOP(long productId, long editionId)
     {
-        var queryEdition = Context.ProductEditions
-                                .AsNoTracking();
-        if (CurrentAppUser.Value.ApplicationRole.IsSuperuser())
-        {
-            queryEdition = queryEdition.Where(x => x.ProductId == productId && (!x.Deleted.HasValue || !x.Deleted.Value) || x.Id == editionId);
-        }
-        else
-        {
-            queryEdition = queryEdition.Where(x => x.ProductId == productId && (!x.Deleted.HasValue || !x.Deleted.Value) && !x.Closed || x.Id == editionId);
-        }
-
-        var editions = queryEdition.OrderBy(x => x.Start)
+        var editions = Context.ProductEditions
+                                .AsNoTracking()
+                                .Where(x => x.ProductId == productId && (!x.Deleted.HasValue || !x.Deleted.Value) && !x.Closed || x.Id == editionId)
+                                .OrderBy(x => x.Start)
                                 .Select(x => new
                                 {
                                     x.Id,
                                     x.Name,
-                                    x.ProductId
+                                    x.ProductId,
                                 })
                                 .ToList();
         return Ok(editions);

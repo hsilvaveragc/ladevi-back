@@ -30,6 +30,16 @@ namespace LadeviVentasApi
             // Crear el builder de la aplicación
             var builder = WebApplication.CreateBuilder(args);
 
+            // Detectar si estamos en modo testing
+            var isTesting = args.Contains("--environment=Testing") ||
+                            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Testing";
+
+            if (isTesting)
+            {
+                builder.Configuration.AddJsonFile("appsettings.Testing.json", optional: false);
+                builder.Environment.EnvironmentName = "Testing";
+            }
+
             // Seteo la configuración de la aplicación
             builder.SetupConfiguration();
 

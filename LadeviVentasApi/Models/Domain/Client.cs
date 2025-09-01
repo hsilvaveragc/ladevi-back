@@ -81,10 +81,6 @@ namespace LadeviVentasApi.Models.Domain
                 .Check(() => ClientAuthorizer(context, applicationUser.Value))
                 .CheckUnique(this, context, x => x.BrandName.ToLower() == BrandName.ToLower(), includeDeleted: false, memberNames: new[] { nameof(BrandName) })
                 .CheckUnique(this, context, x => x.LegalName.ToLower() == LegalName.ToLower(), includeDeleted: false, memberNames: new[] { nameof(LegalName) })
-                .CheckUnique(this, context, x => x.XubioId.HasValue && x.XubioId == XubioId,
-                    msg: $"Ya existe otro cliente en el sistema vinculado al mismo registro de Xubio (ID: {XubioId}). " +
-                        $"Verifique que no esté intentando crear un cliente duplicado.",
-                    memberNames: new[] { nameof(XubioId), nameof(IdentificationValue) })
                 .CheckAsync(() => ValidateXubioPointOfSale(validationContext))
                 ;
         }
