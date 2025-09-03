@@ -11,7 +11,7 @@ $latestCoverage = Get-ChildItem -Path "TestResults" -Recurse -Filter "coverage.c
 if (-not $latestCoverage) {
     Write-Host "No coverage file found!" -ForegroundColor Red
     Write-Host "Run tests with coverage first:" -ForegroundColor Yellow
-    Write-Host "   ./run-coverage.ps1" -ForegroundColor Gray
+    Write-Host "   ./run-tests-with-coverage.ps1" -ForegroundColor Gray
     exit 1
 }
 
@@ -19,34 +19,11 @@ Write-Host "Found coverage file: $($latestCoverage.FullName)" -ForegroundColor C
 Write-Host "Generated: $($latestCoverage.LastWriteTime)" -ForegroundColor Gray
 Write-Host ""
 
-# Crear un proyecto temporal para compilar
-$tempDir = "temp-coverage-reporter"
-if (Test-Path $tempDir) {
-    Remove-Item $tempDir -Recurse -Force
-}
-New-Item -ItemType Directory -Path $tempDir | Out-Null
-
-# Crear project file
-@"
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-</Project>
-"@ | Out-File -FilePath "$tempDir/CoverageReporter.csproj" -Encoding UTF8
-
-# Copiar el archivo C#
-Copy-Item "CoverageReporter.cs" "$tempDir/Program.cs"
-
 try {
-    # Compilar y ejecutar
-    Write-Host "Compiling and running coverage reporter..." -ForegroundColor Blue
-    Push-Location $tempDir
-    dotnet run --verbosity quiet
+    # Ejecutar usando dotnet-script directamente (sin compilación)
+    Write-Host "Running coverage reporter with dotnet-script..." -ForegroundColor Blue
+    dotnet script CoverageReporter.cs
     $exitCode = $LASTEXITCODE
-    Pop-Location
     
     if ($exitCode -eq 0) {
         Write-Host ""
@@ -55,12 +32,10 @@ try {
         Write-Host ""
         Write-Host "Failed to report coverage!" -ForegroundColor Red
     }
-}
-finally {
-    # Limpiar
-    if (Test-Path $tempDir) {
-        Remove-Item $tempDir -Recurse -Force
-    }
     
     exit $exitCode
+}
+catch {
+    Write-Host "Error executing coverage reporter: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 }

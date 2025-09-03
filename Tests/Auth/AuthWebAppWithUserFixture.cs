@@ -17,7 +17,7 @@ namespace Tests.Auth
         {
             BasicDataSeed.Run(this);
             UsersSeed.Run(this);
-            ContractDataSeed.Run(this);
+            // ContractDataSeed.Run(this);
         }
     }
 

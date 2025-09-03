@@ -34,11 +34,10 @@ namespace LadeviVentasApi
             var isTesting = args.Contains("--environment=Testing") ||
                             Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Testing";
 
-            if (isTesting)
-            {
-                builder.Configuration.AddJsonFile("appsettings.Testing.json", optional: false);
-                builder.Environment.EnvironmentName = "Testing";
-            }
+            // if (isTesting)
+            // {
+            builder.Environment.EnvironmentName = "Testing";
+            // }
 
             // Seteo la configuración de la aplicación
             builder.SetupConfiguration();
@@ -76,21 +75,30 @@ namespace LadeviVentasApi
                 };
             });
 
-            var isIntegrationTesting = builder.Configuration["IsIntegrationTesting"] == "true";
+            var isIntegrationTesting = builder.Environment.EnvironmentName == "Testing";
 
             builder.Services.AddEntityFrameworkNpgsql()
                             .AddDbContext<ApplicationDbContext>(opt =>
                                 opt.UseNpgsql(
-                                    builder.Configuration["DefaultConnection"].Replace("Database=", isIntegrationTesting ? "Database=testing_" : "Database="),
+                                    builder.Configuration["DefaultConnection"],
                                         o => o.CommandTimeout(Convert.ToInt32(TimeSpan.FromMinutes(10).TotalSeconds)))
                                 );
 
             //migramos automaticamente la db
             if (isIntegrationTesting)
             {
-                var dbContext = (ApplicationDbContext)builder.Services.BuildServiceProvider().GetService(typeof(ApplicationDbContext));
-                dbContext.Database.EnsureDeleted();
-                dbContext.Database.Migrate();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.ApplicationRoleController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.ApplicationUsersController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.CountryController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.BillingConditionController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.PaymentMethodController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.CurrencyController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.AdvertisingSpaceLocationTypeController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.ProductTypeController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.StateController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.DistrictController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.CityController>();
+                builder.Services.AddTransient<LadeviVentasApi.Controllers.TaxTypeController>();
             }
 
             builder.Services.AddIdentity<IdentityUser, IdentityRole>()
@@ -121,6 +129,10 @@ namespace LadeviVentasApi
                         builder.Configuration["EmailSenderPassword"]
                     )
                 );
+            }
+            else
+            {
+                builder.Services.AddTransient<IEmailSender, MockEmailSender>();
             }
 
             builder.Services.AddHttpContextAccessor();
@@ -180,12 +192,22 @@ namespace LadeviVentasApi
                 try
                 {
                     using var context = (DbContext)scope.ServiceProvider.GetService(typeof(ApplicationDbContext));
-                    Console.WriteLine($"{DateTime.UtcNow:O} | Migrations will run now! Context: {context.GetType().Name}");
-                    var connectionString = builder.Configuration["DEFAULTCONNECTION"];
-                    Console.WriteLine($"{DateTime.UtcNow:O} | target connstr: {connectionString}");
-                    context.Database.SetCommandTimeout(TimeSpan.FromHours(2));
-                    context.Database.Migrate();
-                    Console.WriteLine($"{DateTime.UtcNow:O} | Migrations run ok!");
+                    if (builder.Environment.EnvironmentName == "Testing")
+                    {
+                        context.Database.EnsureDeleted();
+                        context.Database.EnsureCreated();  // ✅ Esto crea TODO basado en el modelo actual
+                        Console.WriteLine($"{DateTime.UtcNow:O} | Integration testing mode: the database will be dropped and recreated.");
+                    }
+                    else
+                    {
+
+                        Console.WriteLine($"{DateTime.UtcNow:O} | Migrations will run now! Context: {context.GetType().Name}");
+                        var connectionString = builder.Configuration["DEFAULTCONNECTION"];
+                        Console.WriteLine($"{DateTime.UtcNow:O} | target connstr: {connectionString}");
+                        context.Database.SetCommandTimeout(TimeSpan.FromHours(2));
+                        context.Database.Migrate();
+                        Console.WriteLine($"{DateTime.UtcNow:O} | Migrations run ok!");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -267,6 +289,15 @@ namespace LadeviVentasApi
                     ContractResolver = new CamelCasePropertyNamesContractResolver()
                 });
             }
+        }
+    }
+
+    public class MockEmailSender : IEmailSender
+    {
+        public Task SendEmailAsync(string email, string subject, string htmlMessage)
+        {
+            Console.WriteLine($"Mock Email sent to {email}: {subject}");
+            return Task.CompletedTask;
         }
     }
 }

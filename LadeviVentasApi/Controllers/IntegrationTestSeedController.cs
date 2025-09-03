@@ -11,6 +11,7 @@ using LadeviVentasApi.DTOs;
 using LadeviVentasApi.Models;
 using LadeviVentasApi.Models.Domain;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -113,6 +114,8 @@ namespace LadeviVentasApi.Controllers
         private DistrictController DistrictController { get; }
         private CityController CityController { get; }
         private TaxTypeController TaxTypeController { get; }
+        private UserManager<IdentityUser> UserManager { get; }
+
 
         public IntegrationTestSeedController(
             ApplicationDbContext context, IMapper mapper,
@@ -128,7 +131,8 @@ namespace LadeviVentasApi.Controllers
             StateController stateController,
             DistrictController districtController,
             CityController cityController,
-            TaxTypeController taxTypeController
+            TaxTypeController taxTypeController,
+             UserManager<IdentityUser> userManager
             )
         {
             Context = context;
@@ -146,6 +150,7 @@ namespace LadeviVentasApi.Controllers
             DistrictController = districtController;
             CityController = cityController;
             TaxTypeController = taxTypeController;
+            UserManager = userManager;
         }
 
         [AllowAnonymous]
@@ -194,16 +199,19 @@ namespace LadeviVentasApi.Controllers
 
             using (var client = new HttpClient())
             {
+                string responsePaisesBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"88\",\"Nombre\":\"sin pais\",\"CodigoTelefonico\":\"0\",\"GrupoId\":\"0\"},{\"Id\":\"4\",\"Nombre\":\"ARGENTINA\",\"CodigoTelefonico\":\"54\",\"GrupoId\":\"1\"},{\"Id\":\"18\",\"Nombre\":\"COLOMBIA\",\"CodigoTelefonico\":\"57\",\"GrupoId\":\"1\"},{\"Id\":\"81\",\"Nombre\":\"USA\",\"CodigoTelefonico\":\"1\",\"GrupoId\":\"3\"},{\"Id\":\"29\",\"Nombre\":\"ESPAÑA\",\"CodigoTelefonico\":\"34\",\"GrupoId\":\"3\"}]}";
+                string responseArgentinaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"65\",\"Nombre\":\"BUENOS AIRES\",\"PaisId\":\"4\"},{\"Id\":\"80\",\"Nombre\":\"CAPITAL FEDERAL\",\"PaisId\":\"4\"},{\"Id\":\"132\",\"Nombre\":\"CORDOBA\",\"PaisId\":\"4\"},{\"Id\":\"417\",\"Nombre\":\"SANTA FE\",\"PaisId\":\"4\"}]}";
+                string responseColombiaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"22\",\"Nombre\":\"ANTIOQUIA\",\"PaisId\":\"18\"},{\"Id\":\"472\",\"Nombre\":\"VALLE DEL CAUCA\",\"PaisId\":\"18\"}]}";
+                string responseUsaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"71\",\"Nombre\":\"CALIFORNIA\",\"PaisId\":\"81\"},{\"Id\":\"454\",\"Nombre\":\"TEXAS\",\"PaisId\":\"81\"}]}";
+                string responseEspaniaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"264\",\"Nombre\":\"MADRID\",\"PaisId\":\"29\"},{\"Id\":\"1724\",\"Nombre\":\"CATALUÑA\",\"PaisId\":\"29\"}]}";
+                string responsNoDataBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[]}";
+
                 try
                 {
-                    HttpResponseMessage responsePaises = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetPaises", null);
-                    responsePaises.EnsureSuccessStatusCode();
-                    string responsePaisesBody = await responsePaises.Content.ReadAsStringAsync();
-
+                    // HttpResponseMessage responsePaises = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetPaises", null);
+                    // responsePaises.EnsureSuccessStatusCode();
+                    // string responsePaisesBody = await responsePaises.Content.ReadAsStringAsync();
                     CountryResponseDto countries = JsonConvert.DeserializeObject<CountryResponseDto>(responsePaisesBody);
-
-                    //USA y Turquia
-                    // var countryFaltante = countries.Data.Where(x => x.Id == 79 || x.Id == 81).ToList();
 
                     foreach (var c in countries.Data)
                     {
@@ -225,9 +233,14 @@ namespace LadeviVentasApi.Controllers
                         var byteContent = new ByteArrayContent(buffer);
                         byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-                        HttpResponseMessage responseProvincia = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetProvincias", byteContent);
-                        responseProvincia.EnsureSuccessStatusCode();
-                        string responseProvinciaBody = await responseProvincia.Content.ReadAsStringAsync();
+                        // HttpResponseMessage responseProvincia = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetProvincias", byteContent);
+                        // responseProvincia.EnsureSuccessStatusCode();
+                        // string responseProvinciaBody = await responseProvincia.Content.ReadAsStringAsync();
+
+                        string responseProvinciaBody = c.Id == 4 ? responseArgentinaProvinciaBody :
+                                                        c.Id == 18 ? responseColombiaProvinciaBody :
+                                                        c.Id == 81 ? responseUsaProvinciaBody :
+                                                        c.Id == 29 ? responseEspaniaProvinciaBody : responsNoDataBody;
 
                         ProvinciaResponseDto provincias = JsonConvert.DeserializeObject<ProvinciaResponseDto>(responseProvinciaBody);
 
@@ -274,35 +287,35 @@ namespace LadeviVentasApi.Controllers
                                             //await DistrictController.Post(district);
                                         }
 
-                                        RequestLocalidades requestLoc = new RequestLocalidades { MunicipioId = m.Id };
-                                        var myContentLoc = JsonConvert.SerializeObject(requestLoc);
-                                        var bufferLoc = System.Text.Encoding.UTF8.GetBytes(myContentLoc);
-                                        var byteContentLoc = new ByteArrayContent(bufferLoc);
-                                        byteContentLoc.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                                        // RequestLocalidades requestLoc = new RequestLocalidades { MunicipioId = m.Id };
+                                        // var myContentLoc = JsonConvert.SerializeObject(requestLoc);
+                                        // var bufferLoc = System.Text.Encoding.UTF8.GetBytes(myContentLoc);
+                                        // var byteContentLoc = new ByteArrayContent(bufferLoc);
+                                        // byteContentLoc.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-                                        HttpResponseMessage responseLocalidad = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetLocalidades", byteContentLoc);
-                                        responseLocalidad.EnsureSuccessStatusCode();
-                                        string responseLocalidadBody = await responseLocalidad.Content.ReadAsStringAsync();
+                                        // HttpResponseMessage responseLocalidad = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetLocalidades", byteContentLoc);
+                                        // responseLocalidad.EnsureSuccessStatusCode();
+                                        // string responseLocalidadBody = await responseLocalidad.Content.ReadAsStringAsync();
 
-                                        LocalidadResponseDto localidades = JsonConvert.DeserializeObject<LocalidadResponseDto>(responseLocalidadBody);
+                                        // LocalidadResponseDto localidades = JsonConvert.DeserializeObject<LocalidadResponseDto>(responseLocalidadBody);
 
-                                        if (localidades.Data != null)
-                                        {
-                                            foreach (var l in localidades.Data)
-                                            {
-                                                if (Context.City.Find(l.Id) == null)
-                                                {
-                                                    City city = new City();
-                                                    city.Id = l.Id;
-                                                    city.DistrictId = l.MunicipioId;
-                                                    city.Name = l.Nombre.ToUpper();
-                                                    city.CodigoTelefonico = l.CodigoTelefonico;
-                                                    Context.Add(city);
-                                                    ciudadesInsertadas.Add(l.Nombre.ToUpper());
-                                                    //await CityController.Post(city);
-                                                }
-                                            }
-                                        }
+                                        // if (localidades.Data != null)
+                                        // {
+                                        //     foreach (var l in localidades.Data)
+                                        //     {
+                                        //         if (Context.City.Find(l.Id) == null)
+                                        //         {
+                                        //             City city = new City();
+                                        //             city.Id = l.Id;
+                                        //             city.DistrictId = l.MunicipioId;
+                                        //             city.Name = l.Nombre.ToUpper();
+                                        //             city.CodigoTelefonico = l.CodigoTelefonico;
+                                        //             Context.Add(city);
+                                        //             ciudadesInsertadas.Add(l.Nombre.ToUpper());
+                                        //             //await CityController.Post(city);
+                                        //         }
+                                        //     }
+                                        // }
                                     }
                                 }
                             }
@@ -343,136 +356,147 @@ namespace LadeviVentasApi.Controllers
         {
             var configToken = Configuration["IntegrationTestSeedToken"];
             if (!token.Equals(configToken)) return BadRequest(new { error = "Invalid token for endpoint" });
-            try
+
+            using (var transaction = Context.Database.BeginTransaction())
             {
-                ApplicationRoleController.ObjectValidator = ObjectValidator;
-                ApplicationUsersController.ObjectValidator = ObjectValidator;
-                CountryController.ObjectValidator = ObjectValidator;
-                BillingConditionController.ObjectValidator = ObjectValidator;
-                PaymentMethodController.ObjectValidator = ObjectValidator;
-                CurrencyController.ObjectValidator = ObjectValidator;
-                AdvertisingSpaceLocationTypeController.ObjectValidator = ObjectValidator;
-                ProductTypeController.ObjectValidator = ObjectValidator;
-                TaxTypeController.ObjectValidator = ObjectValidator;
-
-
-                ApplicationRoleController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                ApplicationUsersController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                CountryController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                BillingConditionController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                PaymentMethodController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                CurrencyController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                AdvertisingSpaceLocationTypeController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                ProductTypeController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-                TaxTypeController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-
-                ApplicationUsersController.Url = Url;
-
-                await SaveLocationData();
-
-                //Roles
-                if (!Context.ApplicationRole.Any())
+                try
                 {
-                    await ApplicationRoleController.Post(new ApplicationRole { Name = ApplicationRole.SuperuserRole });
-                    await ApplicationRoleController.Post(new ApplicationRole { Name = ApplicationRole.NationalSellerRole });
-                    await ApplicationRoleController.Post(new ApplicationRole { Name = ApplicationRole.COMTURSellerRole });
-                    await ApplicationRoleController.Post(new ApplicationRole { Name = ApplicationRole.SupervisorRole });
+                    await SaveLocationData();
+
+                    // Roles
+                    if (!Context.ApplicationRole.Any())
+                    {
+                        Context.ApplicationRole.AddRange(
+                            new ApplicationRole { Name = ApplicationRole.SuperuserRole },
+                            new ApplicationRole { Name = ApplicationRole.NationalSellerRole },
+                            new ApplicationRole { Name = ApplicationRole.COMTURSellerRole },
+                            new ApplicationRole { Name = ApplicationRole.SupervisorRole }
+                        );
+                        await Context.SaveChangesAsync();
+                    }
+
+                    // Condiciones de facturación
+                    if (!Context.BillingConditions.Any())
+                    {
+                        Context.BillingConditions.AddRange(
+                            new BillingCondition { Name = BillingCondition.Anticipated },
+                            new BillingCondition { Name = BillingCondition.AgainstPublication },
+                            new BillingCondition { Name = BillingCondition.Exchange },
+                            new BillingCondition { Name = BillingCondition.NoFee }
+                        );
+                        await Context.SaveChangesAsync();
+                    }
+
+                    // Métodos de pago
+                    if (!Context.PaymentMethods.Any())
+                    {
+                        Context.PaymentMethods.AddRange(
+                            new PaymentMethod { Name = PaymentMethod.Documented },
+                            new PaymentMethod { Name = PaymentMethod.OnePayment },
+                            new PaymentMethod { Name = PaymentMethod.Another }
+                        );
+                        await Context.SaveChangesAsync();
+                    }
+
+                    // Monedas
+                    if (!Context.Currency.Any())
+                    {
+                        Context.Currency.AddRange(
+                            new Currency { Name = Currency.ARS, CountryId = 4 },
+                            new Currency { Name = Currency.USS, CountryId = 81 },
+                            new Currency { Name = Currency.COL, CountryId = 18 }
+                        // Comentadas para futuros cambios:
+                        // new Currency { Name = Currency.CHL, CountryId = 16 },
+                        // new Currency { Name = Currency.MEX, CountryId = 50 },
+                        // new Currency { Name = Currency.PE, CountryId = 56 }
+                        );
+                        await Context.SaveChangesAsync();
+                    }
+
+                    // Ubicaciones
+                    if (!Context.AdvertisingSpaceLocationTypes.Any())
+                    {
+                        Context.AdvertisingSpaceLocationTypes.AddRange(
+                            new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.BeforeCentral },
+                            new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.AfterCentral },
+                            new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.RotaryLocation },
+                            new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.SilverLocation }
+                        );
+                        await Context.SaveChangesAsync();
+                    }
+
+                    // Tipo de Productos
+                    if (!Context.ProductTypes.Any())
+                    {
+                        Context.ProductTypes.AddRange(
+                            new ProductType { Name = ProductType.Magazine },
+                            new ProductType { Name = ProductType.Newsletter }
+                        );
+                        await Context.SaveChangesAsync();
+                    }
+
+                    // Códigos de identificación tributaria
+                    if (!Context.TaxType.Any())
+                    {
+                        Context.TaxType.AddRange(
+                            new TaxType { Name = "CUIT", CountryId = 4, IsIdentificationField = true, OptionsInternal = string.Empty }, // Argentina
+                            new TaxType { Name = "TIN", CountryId = 81, IsIdentificationField = true, OptionsInternal = string.Empty }, // USA
+                            new TaxType { Name = "NIT", CountryId = 18, IsIdentificationField = true, OptionsInternal = string.Empty } // Colombia
+
+                        // Comentados para futuros cambios:
+                        // new TaxType { Name = "RFC", CountryId = 50, IsIdentificationField = true, OptionsInternal=string.Empty }, // Mexico
+                        // new TaxType { Name = "RUT", CountryId = 16, IsIdentificationField = true, OptionsInternal=string.Empty }, // Chile
+                        // new TaxType { Name = "RUC", CountryId = 56, IsIdentificationField = true, OptionsInternal=string.Empty }, // Peru
+                        // new TaxType { Name = "TUR", CountryId = 80, IsIdentificationField = true, OptionsInternal=string.Empty }, // Uruguay
+                        // new TaxType { Name = "SIN", CountryId = 15, IsIdentificationField = true, OptionsInternal=string.Empty }, // Canada
+                        // new TaxType { Name = "CPF", CountryId = 14, IsIdentificationField = true, OptionsInternal=string.Empty }, // Brasil
+                        // new TaxType { Name = "NIT", CountryId = 13, IsIdentificationField = true, OptionsInternal=string.Empty }, // Bolivia
+                        // new TaxType { Name = "NIT", CountryId = 54, IsIdentificationField = true, OptionsInternal=string.Empty }, // Panama
+                        // new TaxType { Name = "NIT", CountryId = 27, IsIdentificationField = true, OptionsInternal=string.Empty }, // Salvador
+                        // new TaxType { Name = "NIT", CountryId = 33, IsIdentificationField = true, OptionsInternal=string.Empty }  // Guatemala
+                        );
+                        await Context.SaveChangesAsync();
+                    }
+
+                    // Usuario admin básico para testing
+                    if (!Context.ApplicationUsers.Any(x => x.Initials.Equals("AD")))
+                    {
+                        // var rolesDebug = Context.Database.SqlQuery<string>(new FormattableString( "SELECT \"Name\" FROM \"ApplicationRole\"").ToList();
+                        // Console.WriteLine($"Roles found: {string.Join(", ", rolesDebug)}");
+                        // // Para testing, crear un usuario básico directamente en la base
+                        // var adminRole = Context.ApplicationRole.FirstOrDefault(role => role.Name == ApplicationRole.SuperuserRole);
+                        var adminRole = Context.ApplicationRole.FirstOrDefault();
+                        if (adminRole != null)
+                        {
+                            var adminIdentityuser = new IdentityUser { UserName = GetAdminMail, Email = GetAdminMail };
+                            var identityResult = await UserManager.CreateAsync(adminIdentityuser, GetAdminPassword);
+                            if (identityResult.Succeeded)
+                            {
+                                var adminUser = new ApplicationUser
+                                {
+                                    FullName = "Admin for Tests",
+                                    Initials = "AD",
+                                    ApplicationRoleId = adminRole.Id,
+                                    CountryId = 4,
+                                    CommisionCoeficient = 0,
+                                    CredentialsUser = adminIdentityuser
+                                };
+
+                                Context.ApplicationUsers.Add(adminUser);
+                                await Context.SaveChangesAsync();
+                            }
+                        }
+                    }
+
+                    await transaction.CommitAsync();
+                    return Ok(new { token = "mock_token_for_testing", message = "Seed completed successfully" });
                 }
-
-                //Condiciones de facturación
-                if (!Context.BillingConditions.Any())
+                catch (Exception e)
                 {
-                    await BillingConditionController.Post(new BillingCondition { Name = BillingCondition.Anticipated });
-                    await BillingConditionController.Post(new BillingCondition { Name = BillingCondition.AgainstPublication });
-                    await BillingConditionController.Post(new BillingCondition { Name = BillingCondition.Exchange });
-                    await BillingConditionController.Post(new BillingCondition { Name = BillingCondition.NoFee });
+                    await transaction.RollbackAsync();
+                    Debug.WriteLine($"Error en RegisterUserSeed: {e}");
+                    return BadRequest(new { error = e.Message, stackTrace = e.StackTrace });
                 }
-
-
-                //Metodos de pago
-                if (!Context.PaymentMethods.Any())
-                {
-                    await PaymentMethodController.Post(new PaymentMethod { Name = PaymentMethod.Documented });
-                    await PaymentMethodController.Post(new PaymentMethod { Name = PaymentMethod.OnePayment });
-                    await PaymentMethodController.Post(new PaymentMethod { Name = PaymentMethod.Another });
-                }
-
-                //Monedas
-                if (!Context.Currency.Any())
-                {
-                    await CurrencyController.Post(new CurrencyWritingDto { Name = Currency.ARS, CountryId = 4 });
-                    await CurrencyController.Post(new CurrencyWritingDto { Name = Currency.USS, CountryId = 81 });
-                    await CurrencyController.Post(new CurrencyWritingDto { Name = Currency.CHL, CountryId = 16 });
-                    await CurrencyController.Post(new CurrencyWritingDto { Name = Currency.COL, CountryId = 18 });
-                    await CurrencyController.Post(new CurrencyWritingDto { Name = Currency.MEX, CountryId = 50 });
-                    await CurrencyController.Post(new CurrencyWritingDto { Name = Currency.PE, CountryId = 56 });
-                }
-
-                //Ubicaciones
-                if (!Context.AdvertisingSpaceLocationTypes.Any())
-                {
-                    await AdvertisingSpaceLocationTypeController.Post(new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.BeforeCentral });
-                    await AdvertisingSpaceLocationTypeController.Post(new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.AfterCentral });
-                    await AdvertisingSpaceLocationTypeController.Post(new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.RotaryLocation });
-                    await AdvertisingSpaceLocationTypeController.Post(new AdvertisingSpaceLocationType { Name = AdvertisingSpaceLocationType.SilverLocation });
-                }
-
-                //Tipo de Productos
-                if (!Context.ProductTypes.Any())
-                {
-                    await ProductTypeController.Post(new ProductType { Name = ProductType.Magazine });
-                    await ProductTypeController.Post(new ProductType { Name = ProductType.Newsletter });
-                }
-
-                //Codigos de identificacion tributaria
-                if (!Context.TaxType.Any())
-                {
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "RFC", CountryId = 50, IsIdentificationField = true }); //Mexico
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "CUIT", CountryId = 4, IsIdentificationField = true }); //Argentina
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "TIN", CountryId = 81, IsIdentificationField = true }); //USA
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "RUT", CountryId = 16, IsIdentificationField = true }); //Chile
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "NIT", CountryId = 18, IsIdentificationField = true }); //Colombia
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "RUC", CountryId = 56, IsIdentificationField = true }); //Peru
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "TUR", CountryId = 80, IsIdentificationField = true }); //Uruguay
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "SIN", CountryId = 15, IsIdentificationField = true }); //Canada
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "CPF", CountryId = 14, IsIdentificationField = true }); //Brasil
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "NIT", CountryId = 13, IsIdentificationField = true }); //Bolivia
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "NIT", CountryId = 54, IsIdentificationField = true }); //Panama
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "NIT", CountryId = 27, IsIdentificationField = true }); //Salvador
-                    await TaxTypeController.Post(new TaxTypeWritingDto { Name = "NIT", CountryId = 33, IsIdentificationField = true }); //Guatemala
-
-                }
-
-                var user = new ApplicationUserWritingDto();
-                var confirmationCode = "";
-                var applicationUserWritingDto = new ApplicationUserWritingDto
-                {
-                    Email = GetAdminMail,
-                    Password = GetAdminPassword,
-                    FullName = "admin for tests",
-                    Initials = "AD",
-                    ApplicationRoleId = Context.ApplicationRole.FirstOrDefault(role => role.Name.Equals(ApplicationRole.SuperuserRole)).Id,
-                    CountryId = 4 // Argentina
-                };
-
-                if (!Context.ApplicationUsers.Any(x => x.Initials.Equals("AD")))
-                {
-                    EmailSenderExtensions.OnEmailEvents += (sender, args) => confirmationCode = sender.ToString();
-
-                    user = (ApplicationUsersController.Post(applicationUserWritingDto).Result as CreatedResult)?.Value as ApplicationUserWritingDto
-                        ?? throw new InvalidOperationException("No se pudo crear el usuario");
-
-                    var applicationUser = Context.ApplicationUsers.Include(u => u.CredentialsUser).Single(u => u.Id == user.Id);
-                    var userConfirmed = (ApplicationUsersController.Confirm(applicationUser.CredentialsUser.Id, confirmationCode).Result as OkObjectResult)?.Value as ApplicationUser
-                                        ?? throw new InvalidOperationException("No se pudo confirmar el usuario");
-                }
-
-                return Ok(new { token = ApplicationUsersController.GetTokenString(applicationUserWritingDto.Email) });
-            }
-            catch (Exception e)
-            {
-                Debug.WriteLine(e);
-                throw;
             }
         }
 

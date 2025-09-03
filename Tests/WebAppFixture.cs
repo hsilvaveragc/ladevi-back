@@ -21,8 +21,7 @@ namespace Tests
         {
             Factory = new CustomWebApplicationFactory<Program>();
             Client = Factory.CreateClient();
-            LinkGenerator = ((LinkGenerator)Factory.Server.Host.Services.GetService(
-                typeof(LinkGenerator)));
+            LinkGenerator = (LinkGenerator)Factory.Services.GetService(typeof(LinkGenerator));
         }
 
         public void Dispose()

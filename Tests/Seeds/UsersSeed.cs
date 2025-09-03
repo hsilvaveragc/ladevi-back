@@ -1,6 +1,4 @@
-﻿using System.Linq;
-using System.Net.Http;
-using LadeviVentasApi.Controllers;
+﻿using LadeviVentasApi.Controllers;
 using LadeviVentasApi.DTOs;
 using LadeviVentasApi.Models;
 using LadeviVentasApi.Models.Domain;
@@ -13,10 +11,10 @@ namespace Tests
         public static string GetPassword() => IntegrationTestSeedController.GetAdminPassword;
         public static void Run(WebAppFixture fixture)
         {
-            // CreateUser(fixture, "admin", ApplicationRole.SuperuserRole);
-            //CreateUser(fixture, "supervisor", ApplicationRole.SupervisorRole);
-            //CreateUser(fixture, "national-seller", ApplicationRole.NationalSellerRole);
-            //CreateUser(fixture, "comtur-seller", ApplicationRole.COMTURSellerRole);            
+            CreateUser(fixture, "admin", ApplicationRole.SuperuserRole);
+            CreateUser(fixture, "supervisor", ApplicationRole.SupervisorRole);
+            CreateUser(fixture, "national-seller", ApplicationRole.NationalSellerRole);
+            CreateUser(fixture, "comtur-seller", ApplicationRole.COMTURSellerRole);
         }
 
         private static void CreateUser(WebAppFixture fixture, string alias, string role)

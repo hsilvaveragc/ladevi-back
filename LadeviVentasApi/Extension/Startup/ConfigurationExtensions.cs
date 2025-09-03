@@ -38,9 +38,11 @@ public static class ConfigurationExtensions
             }
         }
 
-        configuration
-            .AddJsonFile("appsettings.private.json", optional: true, reloadOnChange: true)
-            .AddEnvironmentVariables();
+        if (environment.EnvironmentName != "Testing")
+        {
+            configuration.AddJsonFile("appsettings.private.json", optional: true, reloadOnChange: true);
+        }
+        configuration.AddEnvironmentVariables();
 
         // Añadir configuración como singleton para inyección de dependencias
         webApplicationBuilder.Services.AddSingleton(configuration);

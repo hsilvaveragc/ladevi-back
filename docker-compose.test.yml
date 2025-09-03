@@ -1,0 +1,25 @@
+version: "3.3"
+
+services:
+  ladevi_ventas_api_pg_db_testing:
+    build:
+      context: ./
+      dockerfile: Dockerfile.postgres
+    container_name: ladevi_ventas_api_pg_db_testing
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sa -d ladevi_ventas_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - test_dbdata:/var/lib/postgresql/data
+
+networks:
+  default:
+    name: custom_network
+    external: true
+
+volumes:
+  test_dbdata:
