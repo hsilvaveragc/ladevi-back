@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using LadeviVentasApi.Data;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -12,7 +11,6 @@ using LadeviVentasApi.Extensions.Startup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Serialization;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
@@ -34,10 +32,10 @@ namespace LadeviVentasApi
             var isTesting = args.Contains("--environment=Testing") ||
                             Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Testing";
 
-            // if (isTesting)
-            // {
-            builder.Environment.EnvironmentName = "Testing";
-            // }
+            if (isTesting)
+            {
+                builder.Environment.EnvironmentName = "Testing";
+            }
 
             // Seteo la configuración de la aplicación
             builder.SetupConfiguration();
@@ -76,29 +74,25 @@ namespace LadeviVentasApi
             });
 
             var isIntegrationTesting = builder.Environment.EnvironmentName == "Testing";
+            var ciCdMode = Environment.GetEnvironmentVariable("CI_CD_MODE");
+            var connectionString = builder.Configuration["DefaultConnection"];
 
-            builder.Services.AddEntityFrameworkNpgsql()
-                            .AddDbContext<ApplicationDbContext>(opt =>
-                                opt.UseNpgsql(
-                                    builder.Configuration["DefaultConnection"],
-                                        o => o.CommandTimeout(Convert.ToInt32(TimeSpan.FromMinutes(10).TotalSeconds)))
-                                );
+
+            if (isIntegrationTesting && ciCdMode != "true")
+            {
+                connectionString = connectionString.Replace("Database=", "Database=testing_");
+            }
+
+            builder.Services.AddDbContext<ApplicationDbContext>(opt => opt.UseNpgsql(connectionString, o => o.CommandTimeout(Convert.ToInt32(TimeSpan.FromMinutes(10).TotalSeconds))));
 
             //migramos automaticamente la db
             if (isIntegrationTesting)
             {
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.ApplicationRoleController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.ApplicationUsersController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.CountryController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.BillingConditionController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.PaymentMethodController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.CurrencyController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.AdvertisingSpaceLocationTypeController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.ProductTypeController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.StateController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.DistrictController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.CityController>();
-                builder.Services.AddTransient<LadeviVentasApi.Controllers.TaxTypeController>();
+                builder.Services.AddTransient<Controllers.ApplicationUsersController>();
+                builder.Services.AddTransient<Controllers.CountryController>();
+                builder.Services.AddTransient<Controllers.StateController>();
+                builder.Services.AddTransient<Controllers.DistrictController>();
+                builder.Services.AddTransient<Controllers.CityController>();
             }
 
             builder.Services.AddIdentity<IdentityUser, IdentityRole>()
@@ -194,9 +188,11 @@ namespace LadeviVentasApi
                     using var context = (DbContext)scope.ServiceProvider.GetService(typeof(ApplicationDbContext));
                     if (builder.Environment.EnvironmentName == "Testing")
                     {
+                        Console.WriteLine($"{DateTime.UtcNow:O} | Integration testing mode: the database will be dropped and recreated.");
+                        var connectionString = builder.Configuration["DEFAULTCONNECTION"];
+                        Console.WriteLine($"{DateTime.UtcNow:O} | target connstr: {connectionString}");
                         context.Database.EnsureDeleted();
                         context.Database.EnsureCreated();  // ✅ Esto crea TODO basado en el modelo actual
-                        Console.WriteLine($"{DateTime.UtcNow:O} | Integration testing mode: the database will be dropped and recreated.");
                     }
                     else
                     {

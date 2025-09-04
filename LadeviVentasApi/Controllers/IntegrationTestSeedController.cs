@@ -1,40 +1,47 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Net.Http;
+﻿using System.Diagnostics;
 using System.Net.Http.Headers;
-using System.Threading.Tasks;
 using AutoMapper;
 using LadeviVentasApi.Data;
 using LadeviVentasApi.DTOs;
+using LadeviVentasApi.Helpers.Attributes;
 using LadeviVentasApi.Models;
 using LadeviVentasApi.Models.Domain;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 
 namespace LadeviVentasApi.Controllers
 {
+    /// <summary>
+    /// Controlador especializado para seeding de datos de testing e integración.
+    /// Solo disponible en ambiente "Testing" y con validaciones de seguridad adicionales.
+    /// </summary>
+    /// <remarks>
+    /// Este controlador maneja:
+    /// - Creación de datos básicos del sistema (roles, países, monedas, etc.)
+    /// - Creación de usuarios de prueba con diferentes roles
+    /// - Integración con APIs externas para datos geográficos
+    /// - Validaciones de seguridad por token y ambiente
+    /// </remarks>
     [Route("api/[controller]")]
     [ApiController]
     public class IntegrationTestSeedController : ControllerBase
     {
+        #region DTOs para integración con API externa
+
         public class BaseResponseDto
         {
             public int ErrorCode { get; set; }
             public string ErrorMessage { get; set; }
         }
+
         public class CountryDataDto
         {
             public long Id { get; set; }
             public string Nombre { get; set; }
             public string CodigoTelefonico { get; set; }
             public int GrupoId { get; set; }
-
         }
 
         public class ProvinciaDataDto
@@ -42,7 +49,6 @@ namespace LadeviVentasApi.Controllers
             public long Id { get; set; }
             public string Nombre { get; set; }
             public long PaisId { get; set; }
-
         }
 
         public class CountryResponseDto : BaseResponseDto
@@ -70,17 +76,11 @@ namespace LadeviVentasApi.Controllers
             public long Id { get; set; }
             public string Nombre { get; set; }
             public long ProvinciaId { get; set; }
-
         }
 
         public class MunicipioResponseDto : BaseResponseDto
         {
             public List<MunicipioDataDto> Data { get; set; }
-        }
-
-        public class RequestLocalidades
-        {
-            public long MunicipioId { get; set; }
         }
 
         public class LocalidadDataDto
@@ -91,279 +91,75 @@ namespace LadeviVentasApi.Controllers
             public string CodigoTelefonico { get; set; }
         }
 
-        public class LocalidadResponseDto : BaseResponseDto
-        {
-            public List<LocalidadDataDto> Data { get; set; }
-        }
+        #endregion
 
+        #region Credenciales por defecto para testing
+
+        /// <summary>
+        /// Email del usuario administrador por defecto para testing
+        /// </summary>
         public static string GetAdminMail => "admin@admin.com";
+
+        /// <summary>
+        /// Contraseña del usuario administrador por defecto para testing
+        /// </summary>
         public static string GetAdminPassword => "Xadmin001!";
+
+        #endregion
+
+        #region Dependencias inyectadas
 
         protected ApplicationDbContext Context { get; set; }
         protected IMapper Mapper { get; }
-        private IConfiguration Configuration { get; }
-        private ApplicationRoleController ApplicationRoleController { get; }
         private ApplicationUsersController ApplicationUsersController { get; }
         private CountryController CountryController { get; }
-        private BillingConditionController BillingConditionController { get; }
-        private PaymentMethodController PaymentMethodController { get; }
-        private CurrencyController CurrencyController { get; }
-        private AdvertisingSpaceLocationTypeController AdvertisingSpaceLocationTypeController { get; }
-        private ProductTypeController ProductTypeController { get; }
         private StateController StateController { get; }
         private DistrictController DistrictController { get; }
         private CityController CityController { get; }
-        private TaxTypeController TaxTypeController { get; }
-        private UserManager<IdentityUser> UserManager { get; }
 
+        #endregion
 
+        /// <summary>
+        /// Constructor con inyección de dependencias para todos los controladores y servicios necesarios
+        /// </summary>
         public IntegrationTestSeedController(
             ApplicationDbContext context, IMapper mapper,
-            IConfiguration configuration,
-            ApplicationRoleController applicationRoleController,
             ApplicationUsersController applicationUsersController,
             CountryController countryController,
-            BillingConditionController billingConditionController,
-            PaymentMethodController paymentMethodController,
-            CurrencyController currencyController,
-            AdvertisingSpaceLocationTypeController advertisingSpaceLocationTypeController,
-            ProductTypeController productTypeController,
             StateController stateController,
             DistrictController districtController,
-            CityController cityController,
-            TaxTypeController taxTypeController,
-             UserManager<IdentityUser> userManager
-            )
+            CityController cityController)
         {
             Context = context;
             Mapper = mapper;
-            Configuration = configuration;
             ApplicationUsersController = applicationUsersController;
-            ApplicationRoleController = applicationRoleController;
             CountryController = countryController;
-            BillingConditionController = billingConditionController;
-            PaymentMethodController = paymentMethodController;
-            CurrencyController = currencyController;
-            AdvertisingSpaceLocationTypeController = advertisingSpaceLocationTypeController;
-            ProductTypeController = productTypeController;
             StateController = stateController;
             DistrictController = districtController;
             CityController = cityController;
-            TaxTypeController = taxTypeController;
-            UserManager = userManager;
         }
 
+        /// <summary>
+        /// Endpoint principal para crear todos los datos básicos necesarios para testing.
+        /// Incluye roles, condiciones de facturación, métodos de pago, monedas, ubicaciones,
+        /// tipos de productos, tipos de impuestos y usuario administrador.
+        /// </summary>
+        /// <param name="token">Token de seguridad para validar acceso al endpoint</param>
+        /// <param name="useApi">Si es true, carga datos geográficos desde API externa. Si es false, usa datos prefijados</param>
+        /// <returns>Token JWT del usuario administrador creado</returns>
+        [TestingOnly]
         [AllowAnonymous]
-        [HttpPost("CreateTestUsers/{token}")]
-        public async Task<ActionResult> CreateTestUsers(string token)
+        [HttpPost("BasicDataSeed/{token}")]
+        public async Task<ActionResult> BasicDataSeed(string token, [FromQuery] bool useApi = false)
         {
-            var configToken = Configuration["IntegrationTestSeedToken"];
-            if (!token.Equals(configToken)) return BadRequest(new { error = "Invalid token for endpoint" });
-
-            ApplicationUsersController.ObjectValidator = ObjectValidator;
-            ApplicationUsersController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-            ApplicationUsersController.Url = Url;
-
-            CreateUser("admin", ApplicationRole.SuperuserRole, "ARGENTINA");
-            CreateUser("supervisor", ApplicationRole.SupervisorRole, "ARGENTINA");
-            CreateUser("argSeller", ApplicationRole.NationalSellerRole, "ARGENTINA");
-            CreateUser("nationalsellerBr", ApplicationRole.NationalSellerRole, "BRASIL");
-            CreateUser("comtur-seller", ApplicationRole.COMTURSellerRole, "ARGENTINA");
-
-            return Ok();
-        }
-
-        private async Task<object> SaveLocationData()
-        {
-            CountryController.ObjectValidator = ObjectValidator;
-            CountryController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-            //CountryController.Url = Url;
-
-            StateController.ObjectValidator = ObjectValidator;
-            StateController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-            //StateController.Url = Url;
-
-            DistrictController.ObjectValidator = ObjectValidator;
-            DistrictController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-            //DistrictController.Url = Url;
-
-            CityController.ObjectValidator = ObjectValidator;
-            CityController.ControllerContext.HttpContext = ControllerContext.HttpContext;
-            //CityController.Url = Url;
-
-            List<string> paisesInsertados = new List<string>();
-            List<string> provinciasInsertadas = new List<string>();
-            List<string> municipiosInsertados = new List<string>();
-            List<string> ciudadesInsertadas = new List<string>();
-            string error = string.Empty;
-
-            using (var client = new HttpClient())
-            {
-                string responsePaisesBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"88\",\"Nombre\":\"sin pais\",\"CodigoTelefonico\":\"0\",\"GrupoId\":\"0\"},{\"Id\":\"4\",\"Nombre\":\"ARGENTINA\",\"CodigoTelefonico\":\"54\",\"GrupoId\":\"1\"},{\"Id\":\"18\",\"Nombre\":\"COLOMBIA\",\"CodigoTelefonico\":\"57\",\"GrupoId\":\"1\"},{\"Id\":\"81\",\"Nombre\":\"USA\",\"CodigoTelefonico\":\"1\",\"GrupoId\":\"3\"},{\"Id\":\"29\",\"Nombre\":\"ESPAÑA\",\"CodigoTelefonico\":\"34\",\"GrupoId\":\"3\"}]}";
-                string responseArgentinaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"65\",\"Nombre\":\"BUENOS AIRES\",\"PaisId\":\"4\"},{\"Id\":\"80\",\"Nombre\":\"CAPITAL FEDERAL\",\"PaisId\":\"4\"},{\"Id\":\"132\",\"Nombre\":\"CORDOBA\",\"PaisId\":\"4\"},{\"Id\":\"417\",\"Nombre\":\"SANTA FE\",\"PaisId\":\"4\"}]}";
-                string responseColombiaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"22\",\"Nombre\":\"ANTIOQUIA\",\"PaisId\":\"18\"},{\"Id\":\"472\",\"Nombre\":\"VALLE DEL CAUCA\",\"PaisId\":\"18\"}]}";
-                string responseUsaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"71\",\"Nombre\":\"CALIFORNIA\",\"PaisId\":\"81\"},{\"Id\":\"454\",\"Nombre\":\"TEXAS\",\"PaisId\":\"81\"}]}";
-                string responseEspaniaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"264\",\"Nombre\":\"MADRID\",\"PaisId\":\"29\"},{\"Id\":\"1724\",\"Nombre\":\"CATALUÑA\",\"PaisId\":\"29\"}]}";
-                string responsNoDataBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[]}";
-
-                try
-                {
-                    // HttpResponseMessage responsePaises = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetPaises", null);
-                    // responsePaises.EnsureSuccessStatusCode();
-                    // string responsePaisesBody = await responsePaises.Content.ReadAsStringAsync();
-                    CountryResponseDto countries = JsonConvert.DeserializeObject<CountryResponseDto>(responsePaisesBody);
-
-                    foreach (var c in countries.Data)
-                    {
-                        if (!Context.Country.Any(x => x.Id == c.Id))
-                        {
-                            Country pais = new Country();
-                            pais.Id = c.Id;
-                            pais.Name = c.Nombre.ToUpper();
-                            pais.CodigoTelefonico = c.CodigoTelefonico;
-
-                            Context.Add(pais);
-                            paisesInsertados.Add(c.Nombre.ToUpper());
-                            // await CountryController.Post(pais);
-                        }
-
-                        RequestProvincias requestData = new RequestProvincias { PaisId = c.Id };
-                        var myContent = JsonConvert.SerializeObject(requestData);
-                        var buffer = System.Text.Encoding.UTF8.GetBytes(myContent);
-                        var byteContent = new ByteArrayContent(buffer);
-                        byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-
-                        // HttpResponseMessage responseProvincia = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetProvincias", byteContent);
-                        // responseProvincia.EnsureSuccessStatusCode();
-                        // string responseProvinciaBody = await responseProvincia.Content.ReadAsStringAsync();
-
-                        string responseProvinciaBody = c.Id == 4 ? responseArgentinaProvinciaBody :
-                                                        c.Id == 18 ? responseColombiaProvinciaBody :
-                                                        c.Id == 81 ? responseUsaProvinciaBody :
-                                                        c.Id == 29 ? responseEspaniaProvinciaBody : responsNoDataBody;
-
-                        ProvinciaResponseDto provincias = JsonConvert.DeserializeObject<ProvinciaResponseDto>(responseProvinciaBody);
-
-                        if (provincias.Data != null)
-                        {
-                            foreach (var p in provincias.Data)
-                            {
-                                if (Context.State.Find(p.Id) == null)
-                                {
-                                    State prov = new State();
-                                    prov.CountryId = p.PaisId;
-                                    prov.Id = p.Id;
-                                    prov.Name = p.Nombre.ToUpper();
-
-                                    Context.Add(prov);
-                                    provinciasInsertadas.Add(p.Nombre.ToUpper());
-                                    //await StateController.Post(prov);
-                                }
-
-                                RequestMunicipios requestMun = new RequestMunicipios { ProvinciaId = p.Id };
-                                var myContentMun = JsonConvert.SerializeObject(requestMun);
-                                var bufferMun = System.Text.Encoding.UTF8.GetBytes(myContentMun);
-                                var byteContentMun = new ByteArrayContent(bufferMun);
-                                byteContentMun.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-
-                                HttpResponseMessage responseMunicipio = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetMunicipios", byteContentMun);
-                                responseMunicipio.EnsureSuccessStatusCode();
-                                string responseMunicipioBody = await responseMunicipio.Content.ReadAsStringAsync();
-
-                                MunicipioResponseDto municipios = JsonConvert.DeserializeObject<MunicipioResponseDto>(responseMunicipioBody);
-
-                                if (municipios.Data != null)
-                                {
-                                    foreach (var m in municipios.Data)
-                                    {
-                                        if (Context.District.Find(m.Id) == null)
-                                        {
-                                            District district = new District();
-                                            district.Id = m.Id;
-                                            district.Name = m.Nombre.ToUpper();
-                                            district.StateId = m.ProvinciaId;
-                                            Context.Add(district);
-                                            municipiosInsertados.Add(m.Nombre.ToUpper());
-                                            //await DistrictController.Post(district);
-                                        }
-
-                                        // RequestLocalidades requestLoc = new RequestLocalidades { MunicipioId = m.Id };
-                                        // var myContentLoc = JsonConvert.SerializeObject(requestLoc);
-                                        // var bufferLoc = System.Text.Encoding.UTF8.GetBytes(myContentLoc);
-                                        // var byteContentLoc = new ByteArrayContent(bufferLoc);
-                                        // byteContentLoc.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-
-                                        // HttpResponseMessage responseLocalidad = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetLocalidades", byteContentLoc);
-                                        // responseLocalidad.EnsureSuccessStatusCode();
-                                        // string responseLocalidadBody = await responseLocalidad.Content.ReadAsStringAsync();
-
-                                        // LocalidadResponseDto localidades = JsonConvert.DeserializeObject<LocalidadResponseDto>(responseLocalidadBody);
-
-                                        // if (localidades.Data != null)
-                                        // {
-                                        //     foreach (var l in localidades.Data)
-                                        //     {
-                                        //         if (Context.City.Find(l.Id) == null)
-                                        //         {
-                                        //             City city = new City();
-                                        //             city.Id = l.Id;
-                                        //             city.DistrictId = l.MunicipioId;
-                                        //             city.Name = l.Nombre.ToUpper();
-                                        //             city.CodigoTelefonico = l.CodigoTelefonico;
-                                        //             Context.Add(city);
-                                        //             ciudadesInsertadas.Add(l.Nombre.ToUpper());
-                                        //             //await CityController.Post(city);
-                                        //         }
-                                        //     }
-                                        // }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Context.SaveChanges();
-                }
-                catch (Exception ex)
-                {
-                    error = ex.ToString();
-                    paisesInsertados = new List<string>();
-                    provinciasInsertadas = new List<string>();
-                    municipiosInsertados = new List<string>();
-                    ciudadesInsertadas = new List<string>();
-                }
-            }
-
-            return new { error = error, paises = paisesInsertados, provincias = provinciasInsertadas, municipios = municipiosInsertados, ciudades = ciudadesInsertadas };
-        }
-
-        [AllowAnonymous]
-        [HttpGet("SeedLocationData/{token}")]
-        public async Task<ActionResult> SeedLocationData(string token)
-        {
-            var configToken = Configuration["IntegrationTestSeedToken"];
-            if (!token.Equals(configToken)) return BadRequest(new { error = "Invalid token for endpoint" });
-
-            object result = SaveLocationData().Result;
-
-            return Ok(result);
-        }
-
-
-        [AllowAnonymous]
-        [HttpPost("RegisterUserSeed/{token}")]
-        public async Task<ActionResult> RegisterUserSeed(string token)
-        {
-            var configToken = Configuration["IntegrationTestSeedToken"];
-            if (!token.Equals(configToken)) return BadRequest(new { error = "Invalid token for endpoint" });
-
             using (var transaction = Context.Database.BeginTransaction())
             {
                 try
                 {
-                    await SaveLocationData();
+                    // Cargar datos geográficos (países, provincias, municipios)
+                    await SaveLocationData(useApi);
 
-                    // Roles
+                    // Crear roles del sistema si no existen
                     if (!Context.ApplicationRole.Any())
                     {
                         Context.ApplicationRole.AddRange(
@@ -375,7 +171,7 @@ namespace LadeviVentasApi.Controllers
                         await Context.SaveChangesAsync();
                     }
 
-                    // Condiciones de facturación
+                    // Crear condiciones de facturación si no existen
                     if (!Context.BillingConditions.Any())
                     {
                         Context.BillingConditions.AddRange(
@@ -387,7 +183,7 @@ namespace LadeviVentasApi.Controllers
                         await Context.SaveChangesAsync();
                     }
 
-                    // Métodos de pago
+                    // Crear métodos de pago si no existen
                     if (!Context.PaymentMethods.Any())
                     {
                         Context.PaymentMethods.AddRange(
@@ -398,7 +194,7 @@ namespace LadeviVentasApi.Controllers
                         await Context.SaveChangesAsync();
                     }
 
-                    // Monedas
+                    // Crear monedas si no existen
                     if (!Context.Currency.Any())
                     {
                         Context.Currency.AddRange(
@@ -413,7 +209,7 @@ namespace LadeviVentasApi.Controllers
                         await Context.SaveChangesAsync();
                     }
 
-                    // Ubicaciones
+                    // Crear tipos de ubicación de espacios publicitarios si no existen
                     if (!Context.AdvertisingSpaceLocationTypes.Any())
                     {
                         Context.AdvertisingSpaceLocationTypes.AddRange(
@@ -425,7 +221,7 @@ namespace LadeviVentasApi.Controllers
                         await Context.SaveChangesAsync();
                     }
 
-                    // Tipo de Productos
+                    // Crear tipos de productos si no existen
                     if (!Context.ProductTypes.Any())
                     {
                         Context.ProductTypes.AddRange(
@@ -435,7 +231,7 @@ namespace LadeviVentasApi.Controllers
                         await Context.SaveChangesAsync();
                     }
 
-                    // Códigos de identificación tributaria
+                    // Crear tipos de códigos de identificación tributaria si no existen
                     if (!Context.TaxType.Any())
                     {
                         Context.TaxType.AddRange(
@@ -458,70 +254,266 @@ namespace LadeviVentasApi.Controllers
                         await Context.SaveChangesAsync();
                     }
 
-                    // Usuario admin básico para testing
+                    // Configurar el controlador de usuarios para que funcione correctamente
+                    ApplicationUsersController.ObjectValidator = ObjectValidator;
+                    ApplicationUsersController.ControllerContext.HttpContext = ControllerContext.HttpContext;
+                    ApplicationUsersController.Url = Url;
+
+                    // Crear usuario administrador para testing si no existe usando el método reutilizable
                     if (!Context.ApplicationUsers.Any(x => x.Initials.Equals("AD")))
                     {
-                        // var rolesDebug = Context.Database.SqlQuery<string>(new FormattableString( "SELECT \"Name\" FROM \"ApplicationRole\"").ToList();
-                        // Console.WriteLine($"Roles found: {string.Join(", ", rolesDebug)}");
-                        // // Para testing, crear un usuario básico directamente en la base
-                        // var adminRole = Context.ApplicationRole.FirstOrDefault(role => role.Name == ApplicationRole.SuperuserRole);
-                        var adminRole = Context.ApplicationRole.FirstOrDefault();
-                        if (adminRole != null)
-                        {
-                            var adminIdentityuser = new IdentityUser { UserName = GetAdminMail, Email = GetAdminMail };
-                            var identityResult = await UserManager.CreateAsync(adminIdentityuser, GetAdminPassword);
-                            if (identityResult.Succeeded)
-                            {
-                                var adminUser = new ApplicationUser
-                                {
-                                    FullName = "Admin for Tests",
-                                    Initials = "AD",
-                                    ApplicationRoleId = adminRole.Id,
-                                    CountryId = 4,
-                                    CommisionCoeficient = 0,
-                                    CredentialsUser = adminIdentityuser
-                                };
-
-                                Context.ApplicationUsers.Add(adminUser);
-                                await Context.SaveChangesAsync();
-                            }
-                        }
+                        CreateUser("Admin for Tests", ApplicationRole.SuperuserRole, "ARGENTINA", "AD", GetAdminMail);
                     }
 
                     await transaction.CommitAsync();
-                    return Ok(new { token = "mock_token_for_testing", message = "Seed completed successfully" });
+
+                    // Devolver token JWT válido para el usuario creado
+                    return Ok(new { token = ApplicationUsersController.GetTokenString(GetAdminMail) });
                 }
                 catch (Exception e)
                 {
                     await transaction.RollbackAsync();
-                    Debug.WriteLine($"Error en RegisterUserSeed: {e}");
+                    Debug.WriteLine($"Error en BasicDataSeed: {e}");
                     return BadRequest(new { error = e.Message, stackTrace = e.StackTrace });
                 }
             }
         }
 
-        private void CreateUser(string alias, string roleName, string countryName)
+        /// <summary>
+        /// Endpoint para crear usuarios de prueba con diferentes roles.
+        /// Útil para testing de funcionalidades específicas por rol.
+        /// </summary>
+        /// <param name="token">Token de seguridad para validar acceso al endpoint</param>
+        /// <returns>Confirmación de creación exitosa</returns>
+        [TestingOnly]
+        [AllowAnonymous]
+        [HttpPost("CreateTestUsers/{token}")]
+        public async Task<ActionResult> CreateTestUsers(string token)
+        {
+            // Configurar el controlador de usuarios
+            ApplicationUsersController.ObjectValidator = ObjectValidator;
+            ApplicationUsersController.ControllerContext.HttpContext = ControllerContext.HttpContext;
+
+            // Crear usuarios con diferentes roles para testing
+            CreateUser("admin", ApplicationRole.SuperuserRole, "ARGENTINA");
+            CreateUser("supervisor", ApplicationRole.SupervisorRole, "ARGENTINA");
+            CreateUser("argSeller", ApplicationRole.NationalSellerRole, "ARGENTINA");
+            CreateUser("nationalsellerBr", ApplicationRole.NationalSellerRole, "BRASIL");
+            CreateUser("comtur-seller", ApplicationRole.COMTURSellerRole, "ARGENTINA");
+
+            return Ok(new { message = "Test users created successfully" });
+        }
+
+        /// <summary>
+        /// Carga datos geográficos (países, provincias, municipios) desde API externa o datos prefijados.
+        /// </summary>
+        /// <param name="useApi">Si es true, conecta a API externa. Si es false, usa datos hardcodeados para testing rápido</param>
+        /// <returns>Resumen de datos insertados y errores si los hubo</returns>
+        private async Task<object> SaveLocationData(bool useApi = false)
+        {
+            // Configurar controladores necesarios
+            CountryController.ObjectValidator = ObjectValidator;
+            CountryController.ControllerContext.HttpContext = ControllerContext.HttpContext;
+
+            StateController.ObjectValidator = ObjectValidator;
+            StateController.ControllerContext.HttpContext = ControllerContext.HttpContext;
+
+            DistrictController.ObjectValidator = ObjectValidator;
+            DistrictController.ControllerContext.HttpContext = ControllerContext.HttpContext;
+
+            CityController.ObjectValidator = ObjectValidator;
+            CityController.ControllerContext.HttpContext = ControllerContext.HttpContext;
+
+            ApplicationUsersController.ObjectValidator = ObjectValidator;
+            ApplicationUsersController.ControllerContext.HttpContext = ControllerContext.HttpContext;
+
+            List<string> paisesInsertados = new List<string>();
+            List<string> provinciasInsertadas = new List<string>();
+            List<string> municipiosInsertados = new List<string>();
+            List<string> ciudadesInsertadas = new List<string>();
+            string error = string.Empty;
+
+            // Datos prefijados para testing rápido (cuando useApi = false)
+            string responsePaisesBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"88\",\"Nombre\":\"sin pais\",\"CodigoTelefonico\":\"0\",\"GrupoId\":\"0\"},{\"Id\":\"4\",\"Nombre\":\"ARGENTINA\",\"CodigoTelefonico\":\"54\",\"GrupoId\":\"1\"},{\"Id\":\"18\",\"Nombre\":\"COLOMBIA\",\"CodigoTelefonico\":\"57\",\"GrupoId\":\"1\"},{\"Id\":\"81\",\"Nombre\":\"USA\",\"CodigoTelefonico\":\"1\",\"GrupoId\":\"3\"},{\"Id\":\"29\",\"Nombre\":\"ESPAÑA\",\"CodigoTelefonico\":\"34\",\"GrupoId\":\"3\"}]}";
+            string responseArgentinaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"65\",\"Nombre\":\"BUENOS AIRES\",\"PaisId\":\"4\"},{\"Id\":\"80\",\"Nombre\":\"CAPITAL FEDERAL\",\"PaisId\":\"4\"},{\"Id\":\"132\",\"Nombre\":\"CORDOBA\",\"PaisId\":\"4\"},{\"Id\":\"417\",\"Nombre\":\"SANTA FE\",\"PaisId\":\"4\"}]}";
+            string responseColombiaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"22\",\"Nombre\":\"ANTIOQUIA\",\"PaisId\":\"18\"},{\"Id\":\"472\",\"Nombre\":\"VALLE DEL CAUCA\",\"PaisId\":\"18\"}]}";
+            string responseUsaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"71\",\"Nombre\":\"CALIFORNIA\",\"PaisId\":\"81\"},{\"Id\":\"454\",\"Nombre\":\"TEXAS\",\"PaisId\":\"81\"}]}";
+            string responseEspaniaProvinciaBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[{\"Id\":\"264\",\"Nombre\":\"MADRID\",\"PaisId\":\"29\"},{\"Id\":\"1724\",\"Nombre\":\"CATALUÑA\",\"PaisId\":\"29\"}]}";
+            string responsNoDataBody = "{\"ErrorCode\":0,\"ErrorMessage\":\"\",\"Data\":[]}";
+
+            using (var client = new HttpClient())
+            {
+                try
+                {
+                    // Obtener países desde API o usar datos prefijados
+                    if (useApi)
+                    {
+                        HttpResponseMessage responsePaises = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetPaises", null);
+                        responsePaises.EnsureSuccessStatusCode();
+                        responsePaisesBody = await responsePaises.Content.ReadAsStringAsync();
+                    }
+
+                    CountryResponseDto countries = JsonConvert.DeserializeObject<CountryResponseDto>(responsePaisesBody);
+
+                    foreach (var c in countries.Data)
+                    {
+                        // Crear país si no existe
+                        if (!Context.Country.Any(x => x.Id == c.Id))
+                        {
+                            Country pais = new Country();
+                            pais.Id = c.Id;
+                            pais.Name = c.Nombre.ToUpper();
+                            pais.CodigoTelefonico = c.CodigoTelefonico;
+
+                            Context.Add(pais);
+                            paisesInsertados.Add(c.Nombre.ToUpper());
+                        }
+
+                        // Obtener provincias para cada país
+                        string responseProvinciaBody;
+
+                        if (useApi)
+                        {
+                            RequestProvincias requestData = new RequestProvincias { PaisId = c.Id };
+                            var myContent = JsonConvert.SerializeObject(requestData);
+                            var buffer = System.Text.Encoding.UTF8.GetBytes(myContent);
+                            var byteContent = new ByteArrayContent(buffer);
+                            byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                            HttpResponseMessage responseProvincia = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetProvincias", byteContent);
+                            responseProvincia.EnsureSuccessStatusCode();
+                            responseProvinciaBody = await responseProvincia.Content.ReadAsStringAsync();
+                        }
+                        else
+                        {
+                            // Usar datos prefijados según el país
+                            responseProvinciaBody = c.Id == 4 ? responseArgentinaProvinciaBody :
+                                                  c.Id == 18 ? responseColombiaProvinciaBody :
+                                                  c.Id == 81 ? responseUsaProvinciaBody :
+                                                  c.Id == 29 ? responseEspaniaProvinciaBody : responsNoDataBody;
+                        }
+
+                        ProvinciaResponseDto provincias = JsonConvert.DeserializeObject<ProvinciaResponseDto>(responseProvinciaBody);
+
+                        if (provincias.Data != null)
+                        {
+                            foreach (var p in provincias.Data)
+                            {
+                                // Crear provincia si no existe
+                                if (Context.State.Find(p.Id) == null)
+                                {
+                                    State prov = new State();
+                                    prov.CountryId = p.PaisId;
+                                    prov.Id = p.Id;
+                                    prov.Name = p.Nombre.ToUpper();
+
+                                    Context.Add(prov);
+                                    provinciasInsertadas.Add(p.Nombre.ToUpper());
+                                }
+
+                                // Obtener municipios para cada provincia (solo desde API)
+                                if (useApi)
+                                {
+                                    RequestMunicipios requestMun = new RequestMunicipios { ProvinciaId = p.Id };
+                                    var myContentMun = JsonConvert.SerializeObject(requestMun);
+                                    var bufferMun = System.Text.Encoding.UTF8.GetBytes(myContentMun);
+                                    var byteContentMun = new ByteArrayContent(bufferMun);
+                                    byteContentMun.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                                    HttpResponseMessage responseMunicipio = await client.PostAsync("http://lectores.ladevi.travel/api/ventas.php/GetMunicipios", byteContentMun);
+                                    responseMunicipio.EnsureSuccessStatusCode();
+                                    string responseMunicipioBody = await responseMunicipio.Content.ReadAsStringAsync();
+
+                                    MunicipioResponseDto municipios = JsonConvert.DeserializeObject<MunicipioResponseDto>(responseMunicipioBody);
+
+                                    if (municipios.Data != null)
+                                    {
+                                        foreach (var m in municipios.Data)
+                                        {
+                                            // Crear municipio si no existe
+                                            if (Context.District.Find(m.Id) == null)
+                                            {
+                                                District district = new District();
+                                                district.Id = m.Id;
+                                                district.Name = m.Nombre.ToUpper();
+                                                district.StateId = m.ProvinciaId;
+                                                Context.Add(district);
+                                                municipiosInsertados.Add(m.Nombre.ToUpper());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Context.SaveChanges();
+                }
+                catch (Exception ex)
+                {
+                    error = ex.ToString();
+                    // Limpiar listas en caso de error para indicar que no se insertó nada
+                    paisesInsertados = new List<string>();
+                    provinciasInsertadas = new List<string>();
+                    municipiosInsertados = new List<string>();
+                    ciudadesInsertadas = new List<string>();
+                }
+            }
+
+            return new
+            {
+                error = error,
+                paises = paisesInsertados,
+                provincias = provinciasInsertadas,
+                municipios = municipiosInsertados,
+                ciudades = ciudadesInsertadas,
+                useApi = useApi
+            };
+        }
+
+        /// <summary>
+        /// Crea un usuario de prueba con los parámetros especificados.
+        /// Maneja tanto usuarios normales como el usuario administrador principal.
+        /// </summary>
+        /// <param name="fullName">Nombre completo del usuario</param>
+        /// <param name="roleName">Nombre del rol a asignar</param>
+        /// <param name="countryName">Nombre del país del usuario</param>
+        /// <param name="initials">Iniciales del usuario (opcional, si no se proporciona usa el fullName)</param>
+        /// <param name="email">Email del usuario (opcional, si no se proporciona usa {fullName}@mail.com)</param>
+        /// <param name="confirmationEmailRequired">Si es true, simula el proceso de confirmación por email</param>
+        private void CreateUser(string fullName, string roleName, string countryName, string initials = null, string email = null, bool confirmationEmailRequired = false)
         {
             string confirmationCode = null;
-            EmailSenderExtensions.OnEmailEvents += (sender, args) => confirmationCode = sender.ToString();
+
+            if (confirmationEmailRequired)
+            {
+                EmailSenderExtensions.OnEmailEvents += (sender, args) => confirmationCode = sender.ToString();
+            }
+
             var country = Context.Country.Single(c => c.Name == countryName);
             var role = Context.ApplicationRole.Single(r => r.Name == roleName);
 
-            //intentamos crear un user valido
+            // Usar valores por defecto si no se proporcionan
+            initials = initials ?? fullName;
+            email = email ?? $"{fullName.ToLower().Replace(" ", "")}@mail.com";
+
+            // Crear usuario
             var user01 = (ApplicationUsersController.Post(new ApplicationUserWritingDto
             {
-                Email = $"{alias}@mail.com",
+                Email = email,
                 Password = GetAdminPassword,
-                FullName = alias,
-                Initials = alias,
+                FullName = fullName,
+                Initials = initials,
                 CountryId = country.Id,
                 ApplicationRoleId = role.Id
-            }
-            ).Result as CreatedResult)?.Value as ApplicationUserWritingDto;
+            }).Result as CreatedResult)?.Value as ApplicationUserWritingDto;
 
-            //hacemos el confirmar
-            var userFull = Context.ApplicationUsers.Include(u => u.CredentialsUser).Single(u => u.Id == user01.Id);
-            var userConfirmedOk = ApplicationUsersController.Confirm(userFull.CredentialsUser.Id, confirmationCode).Result;
+
+            if (confirmationEmailRequired)
+            {
+                var userFull = Context.ApplicationUsers.Include(u => u.CredentialsUser).Single(u => u.Id == user01.Id);
+                var userConfirmedOk = ApplicationUsersController.Confirm(userFull.CredentialsUser.Id, confirmationCode).Result;
+            }
         }
     }
 }

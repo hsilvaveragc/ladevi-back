@@ -38,10 +38,12 @@ public static class ConfigurationExtensions
             }
         }
 
-        if (environment.EnvironmentName != "Testing")
+        var ciCdMode = Environment.GetEnvironmentVariable("CI_CD_MODE");
+        if (ciCdMode != "true")
         {
             configuration.AddJsonFile("appsettings.private.json", optional: true, reloadOnChange: true);
         }
+
         configuration.AddEnvironmentVariables();
 
         // Añadir configuración como singleton para inyección de dependencias

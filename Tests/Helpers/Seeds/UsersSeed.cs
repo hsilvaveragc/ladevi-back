@@ -2,6 +2,7 @@
 using LadeviVentasApi.DTOs;
 using LadeviVentasApi.Models;
 using LadeviVentasApi.Models.Domain;
+using Tests.Helpers.Fixtures;
 
 namespace Tests
 {
@@ -9,7 +10,7 @@ namespace Tests
     {
         public static string GetUserMail() => IntegrationTestSeedController.GetAdminMail;
         public static string GetPassword() => IntegrationTestSeedController.GetAdminPassword;
-        public static void Run(WebAppFixture fixture)
+        public static void Run(WebAppFixtureBase fixture)
         {
             CreateUser(fixture, "admin", ApplicationRole.SuperuserRole);
             CreateUser(fixture, "supervisor", ApplicationRole.SupervisorRole);
@@ -17,7 +18,7 @@ namespace Tests
             CreateUser(fixture, "comtur-seller", ApplicationRole.COMTURSellerRole);
         }
 
-        private static void CreateUser(WebAppFixture fixture, string alias, string role)
+        private static void CreateUser(WebAppFixtureBase fixture, string alias, string role)
         {
             string confirmationCode = null;
             EmailSenderExtensions.OnEmailEvents += (sender, args) => confirmationCode = sender.ToString();

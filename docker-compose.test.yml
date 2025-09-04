@@ -2,10 +2,12 @@ version: "3.3"
 
 services:
   ladevi_ventas_api_pg_db_testing:
-    build:
-      context: ./
-      dockerfile: Dockerfile.postgres
+    image: postgres:17
     container_name: ladevi_ventas_api_pg_db_testing
+    environment:
+      POSTGRES_DB: ladevi_ventas_test
+      POSTGRES_USER: sa
+      POSTGRES_PASSWORD: password
     ports:
       - "5436:5432"
     healthcheck:

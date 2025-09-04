@@ -1,8 +1,8 @@
 ﻿using Xunit;
 
-namespace Tests.Auth
+namespace Tests.Helpers.Fixtures
 {
-    public class AuthWebAppWithUserFixture : WebAppFixture
+    public class AuthWebAppWithUserFixture : WebAppFixtureBase
     {
         public AuthWebAppWithUserFixture()
         {
@@ -11,7 +11,7 @@ namespace Tests.Auth
         }
     }
 
-    public class ContractFixture : WebAppFixture
+    public class ContractFixture : WebAppFixtureBase
     {
         public ContractFixture()
         {
@@ -32,9 +32,9 @@ namespace Tests.Auth
     [Collection("AuthWebAppWithUserCollection")]
     public abstract class AuthWebAppWithUserCollection
     {
-        protected WebAppFixture Fixture { get; }
+        protected WebAppFixtureBase Fixture { get; }
 
-        protected AuthWebAppWithUserCollection(WebAppFixture fixture)
+        protected AuthWebAppWithUserCollection(WebAppFixtureBase fixture)
         {
             Fixture = fixture;
         }
@@ -51,9 +51,9 @@ namespace Tests.Auth
     [Collection("AuthWebAppWithContractCollection")]
     public abstract class AuthWebAppWithContractCollection
     {
-        protected WebAppFixture Fixture { get; }
+        protected WebAppFixtureBase Fixture { get; }
 
-        protected AuthWebAppWithContractCollection(WebAppFixture fixture)
+        protected AuthWebAppWithContractCollection(WebAppFixtureBase fixture)
         {
             Fixture = fixture;
         }

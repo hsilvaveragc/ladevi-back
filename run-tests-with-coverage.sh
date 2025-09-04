@@ -12,13 +12,7 @@ docker-compose -f docker-compose.test.yml down -v
 docker-compose -f docker-compose.test.yml up --build -d ladevi_ventas_api_pg_db_testing
 
 echo "⏳ Esperando que PostgreSQL termine de inicializarse completamente..."
-sleep 30
-
-echo "📋 Logs de inicialización completos:"
-docker logs ladevi_ventas_api_pg_db_testing
-
-echo "📂 Verificando archivos init-scripts en el contenedor:"
-docker exec ladevi_ventas_api_pg_db_testing ls -la /docker-entrypoint-initdb.d/ 2>/dev/null || echo "❌ No se puede acceder al contenedor"
+sleep 5
 
 echo "🔍 Estado del contenedor:"
 docker ps | grep ladevi_ventas_api_pg_db_testing
@@ -27,7 +21,7 @@ echo "⏳ Waiting for PostgreSQL to be ready..."
 timeout=90
 elapsed=0
 
-# Usar docker-compose exec en lugar de docker exec para verificar PostgreSQL
+
 while ! docker-compose -f docker-compose.test.yml exec -T ladevi_ventas_api_pg_db_testing pg_isready -U sa -d ladevi_ventas_test >/dev/null 2>&1; do
     sleep 3
     elapsed=$((elapsed + 3))
@@ -46,14 +40,10 @@ echo "✅ PostgreSQL is ready!"
 echo "🧪 Running tests with coverage..."
 
 # Establecer las variables de entorno para modo testing
-export ASPNETCORE_ENVIRONMENT=Testing
-export DefaultConnection="Server=localhost;Database=ladevi_ventas_test;User Id=sa;Password=password;Port=5436;"
+export CI_CD_MODE="true"
 
 # Debug: verificar que las variables se establecieron
-echo "🔍 ASPNETCORE_ENVIRONMENT=$ASPNETCORE_ENVIRONMENT"
-echo "🔍 DefaultConnection=$DefaultConnection"
-echo "🔍 Contenido de appsettings.Testing.json:"
-cat LadeviVentasApi/appsettings.Testing.json
+echo "🔍 DefaultConnection=$CI_CD_MODE"
 
 if [ "$1" != "" ]; then
     echo "🎯 Filtering tests: $1"
