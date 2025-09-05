@@ -12,10 +12,14 @@ namespace Tests
         public static string GetPassword() => IntegrationTestSeedController.GetAdminPassword;
         public static void Run(WebAppFixtureBase fixture)
         {
-            CreateUser(fixture, "admin", ApplicationRole.SuperuserRole);
-            CreateUser(fixture, "supervisor", ApplicationRole.SupervisorRole);
-            CreateUser(fixture, "national-seller", ApplicationRole.NationalSellerRole);
-            CreateUser(fixture, "comtur-seller", ApplicationRole.COMTURSellerRole);
+            // CreateUser(fixture, "admin", ApplicationRole.SuperuserRole);
+            // CreateUser(fixture, "supervisor", ApplicationRole.SupervisorRole);
+            // CreateUser(fixture, "national-seller", ApplicationRole.NationalSellerRole);
+            // CreateUser(fixture, "comtur-seller", ApplicationRole.COMTURSellerRole);
+            var seed = fixture.Send<IntegrationTestSeedController>(
+    nameof(IntegrationTestSeedController.CreateTestUsers),
+    routeValues: new { token = "tfENXZ840DEO7GKVPQi3" }
+).Result;
         }
 
         private static void CreateUser(WebAppFixtureBase fixture, string alias, string role)

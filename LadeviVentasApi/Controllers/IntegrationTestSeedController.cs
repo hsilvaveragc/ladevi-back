@@ -295,10 +295,9 @@ namespace LadeviVentasApi.Controllers
             ApplicationUsersController.ControllerContext.HttpContext = ControllerContext.HttpContext;
 
             // Crear usuarios con diferentes roles para testing
-            CreateUser("admin", ApplicationRole.SuperuserRole, "ARGENTINA");
+            // CreateUser("admin", ApplicationRole.SuperuserRole, "ARGENTINA");
             CreateUser("supervisor", ApplicationRole.SupervisorRole, "ARGENTINA");
-            CreateUser("argSeller", ApplicationRole.NationalSellerRole, "ARGENTINA");
-            CreateUser("nationalsellerBr", ApplicationRole.NationalSellerRole, "BRASIL");
+            CreateUser("national-seller", ApplicationRole.NationalSellerRole, "ARGENTINA");
             CreateUser("comtur-seller", ApplicationRole.COMTURSellerRole, "ARGENTINA");
 
             return Ok(new { message = "Test users created successfully" });

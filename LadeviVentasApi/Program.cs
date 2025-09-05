@@ -141,6 +141,12 @@ namespace LadeviVentasApi
                 customCulture
             };
 
+            //     builder.Services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options =>
+            //   {
+            //       options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+            //   });
+
+
             builder.Services.Configure<RequestLocalizationOptions>(options =>
             {
                 options.DefaultRequestCulture = new RequestCulture(customCulture);

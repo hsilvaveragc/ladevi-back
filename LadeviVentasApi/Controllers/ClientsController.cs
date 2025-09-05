@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 
 [Route("api/[controller]")]
 [ApiController]
-public class ClientsController : RestControlleV2<Client, ClientWritingDto>
+public class ClientsController : RestV2Controller<Client, ClientWritingDto>
 {
   private readonly XubioService xubioService;
 

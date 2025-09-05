@@ -11,126 +11,138 @@ namespace Tests.Auth
         public UserCreationAndLoginWorkflowIntegrationTests(AuthWebAppFixture fixture) : base(fixture) { }
 
         [Fact]
-        public async Task UserCreationWorkflow()
+        public async Task ShouldCompleteFullUserLifecycle_FromCreationToTokenRefresh()
         {
-            //verificamos que no hay users
-            var users = await Fixture.Send<DataSourceResult<ApplicationUser>, ApplicationUsersController>(
+            // Arrange - Setup data
+            var validCountryId = Fixture.Search<Country, CountryController>().First().Id;
+            var validRoleId = Fixture.SearchByAttr<ApplicationRole, ApplicationRoleController>("Name", ApplicationRole.SuperuserRole).First().Id;
+            var uniqueEmail = $"test_user@mail.com";
+
+            // Act & Assert 1: Verificar estado inicial - solo usuario admin existe
+            var initialUsers = await Fixture.Send<DataSourceResult<ApplicationUser>, ApplicationUsersController>(
                 nameof(ApplicationUsersController.Search),
                 bodyData: new { take = 10 }
             );
-            Assert.Single(users.Data);
+            Assert.Single(initialUsers.Data);
 
-            //intentamos crear un user invalido sin datos
-            var errorsResponse01 = await Fixture.Send<ErrorsApiResponse, ApplicationUsersController>(
+            // Act & Assert 2: Validación falla con datos vacíos
+            var emptyUserValidationResponse = await Fixture.Send<ErrorsApiResponse, ApplicationUsersController>(
                 nameof(ApplicationUsersController.Post),
                 bodyData: new ApplicationUserWritingDto(),
                 shouldSucceed: false
             );
-            Assert.NotEmpty(errorsResponse01.Errors);
+            AssertRequiredFieldValidationErrors(emptyUserValidationResponse);
 
-            // //intentamos crear un user invalido con password invalido
-            // var errorsResponse02 = await Fixture.Send<ApplicationUsersController>(
-            //     nameof(ApplicationUsersController.Post),
-            //     bodyData: new ApplicationUserWritingDto { Password = "123" },
-            //     shouldSucceed: false
-            // );
-            // Assert.Contains(
-            //     errorsResponse02["errors"]["password"],
-            //     x => x.ToString().ToLowerInvariant().Contains("password")
-            // );
+            // Act & Assert 3: Validación falla con password débil
+            var weakPasswordResponse = await Fixture.Send<ErrorsApiResponse, ApplicationUsersController>(
+                nameof(ApplicationUsersController.Post),
+                bodyData: new ApplicationUserWritingDto
+                {
+                    Email = uniqueEmail,
+                    FullName = "Integration Test User",
+                    Initials = "ITU",
+                    CountryId = validCountryId,
+                    ApplicationRoleId = validRoleId,
+                    Password = "123" // Password débil
+                },
+                shouldSucceed: false
+            );
+            Assert.True(weakPasswordResponse.Errors.ContainsKey("password"));
 
-            // //intentamos crear un user invalido con password invalido
-            // var errorsResponse03 = await Fixture.Send<ApplicationUsersController>(
-            //     nameof(ApplicationUsersController.Post),
-            //     bodyData: new ApplicationUserWritingDto { Password = "123aaaaaaaa" },
-            //     shouldSucceed: false
-            // );
-            // Assert.Contains(
-            //     errorsResponse03["errors"]["password"],
-            //     x => x.ToString().ToLowerInvariant().Contains("password")
-            // );
+            // Act & Assert 4: Validación falla con país inválido
+            var invalidCountryResponse = await Fixture.Send<ErrorsApiResponse, ApplicationUsersController>(
+                nameof(ApplicationUsersController.Post),
+                bodyData: new ApplicationUserWritingDto
+                {
+                    Email = uniqueEmail,
+                    FullName = "Integration Test User",
+                    Initials = "ITU",
+                    CountryId = -1, // País inválido
+                    ApplicationRoleId = validRoleId,
+                    Password = "ValidPassword123!"
+                },
+                shouldSucceed: false
+            );
+            Assert.True(invalidCountryResponse.Errors.ContainsKey("countryId"));
 
-            // //intentamos crear un user invalido con pais invalido
-            // var errorsResponse04 = await Fixture.Send<ApplicationUsersController>(
-            //     nameof(ApplicationUsersController.Post),
-            //     bodyData: new ApplicationUserWritingDto
-            //     {
-            //         Email = "pepe@mail.com",
-            //         Password = "Xaaa111--",
-            //         CountryId = -1
-            //     },
-            //     shouldSucceed: false
-            // );
-            // Assert.Contains(
-            //     errorsResponse04["errors"]["countryId"],
-            //     x => true
-            // );
+            // Act & Assert 5: Creación exitosa con datos válidos
+            var validUserDto = new ApplicationUserWritingDto
+            {
+                Email = uniqueEmail,
+                Password = "ValidPassword123!",
+                FullName = "Integration Test User",
+                Initials = "ITU",
+                CountryId = validCountryId,
+                ApplicationRoleId = validRoleId
+            };
 
-            // string confirmationCode = null;
-            // EmailSenderExtensions.OnEmailEvents += (sender, args) => confirmationCode = sender.ToString();
-            // //intentamos crear un user valido
-            // var user01 = await Fixture.Send<ApplicationUserWritingDto, ApplicationUsersController>(
-            //     nameof(ApplicationUsersController.Post),
-            //     bodyData: new ApplicationUserWritingDto
-            //     {
-            //         Email = "pepe@mail.com",
-            //         Password = "Xaaa111--",
-            //         FullName = "pepe admin",
-            //         Initials = "PA",
-            //         CountryId = Fixture.Search<Country, CountryController>().First().Id,
-            //         ApplicationRoleId = Fixture.SearchByAttr<ApplicationRole, ApplicationRoleController>("Name", ApplicationRole.SuperuserRole).First().Id
-            //     }
-            // );
-            // Assert.NotNull(user01);
+            var createdUser = await Fixture.Send<ApplicationUserWritingDto, ApplicationUsersController>(
+                nameof(ApplicationUsersController.Post),
+                bodyData: validUserDto
+            );
 
-            // //probamos login correcto pero sin confirmar
-            // var errorSinConfirmar = await Fixture.Send<ApplicationUsersController>(
-            //     nameof(ApplicationUsersController.Login),
-            //     routeValues: new
-            //     {
-            //         email = user01.Email,
-            //         password = user01.Password
-            //     },
-            //     shouldSucceed: false
-            // );
-            // Assert.NotNull(errorSinConfirmar);
-            // Assert.Null(errorSinConfirmar["token"]);
+            Assert.NotNull(createdUser);
+            Assert.Equal(validUserDto.Email, createdUser.Email);
+            Assert.Equal(validUserDto.FullName, createdUser.FullName);
 
-            // //hacemos el confirmar
-            // var userFull = Fixture.GetById<ApplicationUser, ApplicationUsersController>(user01.Id);
-            // Assert.False(userFull.CredentialsUser.EmailConfirmed);
-            // var userConfirmedOk = await Fixture.Send<ApplicationUser, ApplicationUsersController>(
-            //     nameof(ApplicationUsersController.Confirm),
-            //     routeValues: new
-            //     {
-            //         userId = userFull.CredentialsUser.Id,
-            //         code = confirmationCode
-            //     },
-            //     method: HttpMethod.Get
-            // );
-            // Assert.NotNull(userConfirmedOk);
-            // userFull = Fixture.GetById<ApplicationUser, ApplicationUsersController>(userConfirmedOk.Id);
-            // Assert.True(userFull.CredentialsUser.EmailConfirmed);
+            // Act & Assert 6: Login exitoso con usuario creado   
+            var initialLoginResponse = await Fixture.Send<ApplicationUsersController>(
+                nameof(ApplicationUsersController.Login),
+                routeValues: new
+                {
+                    email = createdUser.Email,
+                    password = validUserDto.Password
+                }
+            );
+            var originalToken = initialLoginResponse["token"]?.ToString();
+            var validRefreshToken = initialLoginResponse["refreshToken"]?.ToString();
 
-            // //probamos login correcto pero luego de confirmar
-            // var loginOk = await Fixture.Send<ApplicationUsersController>(
-            //     nameof(ApplicationUsersController.Login),
-            //     routeValues: new
-            //     {
-            //         email = user01.Email,
-            //         password = user01.Password
-            //     }
-            // );
-            // Assert.False(string.IsNullOrWhiteSpace(loginOk["token"].ToString()));
-            // Assert.False(string.IsNullOrWhiteSpace(loginOk["refreshToken"].ToString()));
-            // Assert.NotNull(loginOk["user"]["id"]);
+            Assert.False(string.IsNullOrWhiteSpace(originalToken));
+            Assert.False(string.IsNullOrWhiteSpace(validRefreshToken));
+            Assert.NotNull(initialLoginResponse["user"]?["id"]);
 
-            // //busco el usuario creado
-            // var userSearch = Fixture
-            //     .SearchByAttr<ApplicationUser, ApplicationUsersController>(nameof(userConfirmedOk.FullName), userConfirmedOk.FullName)
-            //     .Single();
-            // Assert.NotNull(userSearch);
-            // Assert.Equal(user01.Id, userSearch.Id);
+            // Act & Assert 7: Refresh token falla con token inválido
+            var invalidRefreshResponse = await Fixture.Send<ApplicationUsersController>(
+                nameof(ApplicationUsersController.RefreshToken),
+                routeValues: new { refreshToken = "invalid-token" },
+                shouldSucceed: false
+            );
+            Assert.NotNull(invalidRefreshResponse["errors"]);
+
+            // Act & Assert 8: Refresh token exitoso con token válido
+            var validRefreshResponse = await Fixture.Send<ApplicationUsersController>(
+                nameof(ApplicationUsersController.RefreshToken),
+                routeValues: new { refreshToken = validRefreshToken }
+            );
+
+            var newToken = validRefreshResponse["token"]?.ToString();
+            var newRefreshToken = validRefreshResponse["refreshToken"]?.ToString();
+
+            Assert.False(string.IsNullOrWhiteSpace(newToken));
+            Assert.False(string.IsNullOrWhiteSpace(newRefreshToken));
+            Assert.NotEqual(originalToken, newToken); // Nuevo token diferente
+            Assert.NotEqual(validRefreshToken, newRefreshToken); // Refresh token permanece igual
+
+            // Act & Assert 9: Usuario puede ser encontrado mediante búsqueda
+            var foundUsers = Fixture.SearchByAttr<ApplicationUser, ApplicationUsersController>(
+                nameof(ApplicationUser.FullName),
+                createdUser.FullName
+            );
+
+            var foundUser = Assert.Single(foundUsers);
+            Assert.Equal(createdUser.Id, foundUser.Id);
+
+        }
+
+        private static void AssertRequiredFieldValidationErrors(ErrorsApiResponse response)
+        {
+            var requiredFields = new[] { "FullName", "Initials", "Email", "ApplicationRoleId", "CountryId", "Password" };
+
+            foreach (var field in requiredFields)
+            {
+                Assert.True(response.Errors.ContainsKey(field),
+                    $"Expected validation error for required field: {field}");
+            }
         }
     }
 }

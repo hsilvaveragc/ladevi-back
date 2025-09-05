@@ -15,7 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Serialization;
 
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-public class RestControlleV2<T, TWrite> : ControllerBase
+public class RestV2Controller<T, TWrite> : ControllerBase
     where T : BaseEntity
     where TWrite : BaseDto
 {
@@ -23,7 +23,7 @@ public class RestControlleV2<T, TWrite> : ControllerBase
     protected IMapper Mapper { get; }
     protected Lazy<ApplicationUser> CurrentAppUser;
 
-    public RestControlleV2(ApplicationDbContext context, IMapper mapper)
+    public RestV2Controller(ApplicationDbContext context, IMapper mapper)
     {
         Context = context;
         Mapper = mapper;

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using LadeviVentasApi.Helpers.Attributes;
 using Microsoft.AspNetCore.Identity;
 
 namespace LadeviVentasApi.Models.Domain
@@ -9,11 +10,11 @@ namespace LadeviVentasApi.Models.Domain
         [Required] public string Initials { get; set; }
         [Required] public double CommisionCoeficient { get; set; }
         public ApplicationRole? ApplicationRole { get; set; }
-        [Required, FkCheck(TypeToCheck = typeof(ApplicationRole))] public long ApplicationRoleId { get; set; }
+        [RequiredId, FkCheck(TypeToCheck = typeof(ApplicationRole))] public long ApplicationRoleId { get; set; }
         public Country? Country { get; set; }
-        [Required, FkCheck(TypeToCheck = typeof(Country))] public long CountryId { get; set; }
+        [RequiredId, FkCheck(TypeToCheck = typeof(Country))] public long CountryId { get; set; }
         public IdentityUser? CredentialsUser { get; set; }
-        [Required, FkCheck(TypeToCheck = typeof(IdentityUser))] public string CredentialsUserId { get; set; }
+        [RequiredId, FkCheck(TypeToCheck = typeof(IdentityUser))] public string CredentialsUserId { get; set; }
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             var validationResults = new List<ValidationResult>();

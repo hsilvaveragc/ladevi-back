@@ -110,10 +110,10 @@ public class ApplicationUsersController : RestController<ApplicationUser, Applic
             if (ModelState.IsValid)
             {
                 Context.Add(applicationUser);
-                var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
-                Console.WriteLine("token {0} for user {1}", code, user.Id);
-                var callbackUrl = Url.Action(nameof(Confirm), "ApplicationUsers", new { userId = user.Id, code },
-                    Request.Scheme);
+                // var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+                // Console.WriteLine("token {0} for user {1}", code, user.Id);
+                // var callbackUrl = Url.Action(nameof(Confirm), "ApplicationUsers", new { userId = user.Id, code },
+                //     Request.Scheme);
                 await Context.SaveChangesAsync();
                 // await EmailSender.SendEmailConfirmationAsync(x.Email, callbackUrl, code);
                 x.Id = applicationUser.Id;
@@ -124,9 +124,17 @@ public class ApplicationUsersController : RestController<ApplicationUser, Applic
                     Auditory audit = new Auditory();
                     audit.Date = DateTime.Now;
                     audit.Entity = "Usuarios";
-                    audit.UserId = CurrentAppUser.Value.Id;
-                    audit.User = CurrentAppUser.Value.FullName;
-
+                    // Solo asignar UserId si hay un usuario autenticado
+                    if (User?.Identity?.IsAuthenticated == true)
+                    {
+                        audit.UserId = CurrentAppUser.Value.Id;
+                        audit.User = CurrentAppUser.Value.FullName;
+                    }
+                    else
+                    {
+                        audit.UserId = 0; // O algún valor por defecto
+                        audit.User = "Sistema";
+                    }
                     audit.AuditMessage = "Creación de " + audit.Entity + ". Id=" + applicationUser.Id.ToString() + ". Nombre: " + x.FullName;
 
                     Context.Add(audit);
