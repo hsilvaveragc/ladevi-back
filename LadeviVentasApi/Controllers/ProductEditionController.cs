@@ -160,13 +160,12 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
 
     protected override IQueryable<ProductEdition> GetQueryableWithIncludes()
     {
-        bool isSupervisor = CurrentAppUser.Value.ApplicationRole.IsSupervisor();
         var allEditions = base.GetQueryableWithIncludes()
             .Include(pe => pe.Product)
-            .Include(pe => pe.PublishingOrders);
-
-
-
+                .ThenInclude(p => p.ProductAdvertisingSpaces)
+            .Include(pe => pe.PublishingOrders)
+            .Include(pe => pe.InventoryProductAdvertisingSpaces)
+            .AsNoTracking();
 
         return allEditions;
     }
@@ -177,21 +176,47 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
             .Select(x => new
             {
                 x.Id,
-                x.Product,
                 x.ProductId,
-                x.Code,
+                ProductName = x.Product != null ? x.Product.Name.Trim() : "",
+                ProductAdvertisingSpaces = x.Product.ProductAdvertisingSpaces
+                                                    .Where(pas => (!pas.Deleted.HasValue || !pas.Deleted.Value) && pas.Show)
+                                                    .Select(pas => new
+                                                    {
+                                                        pas.Id,
+                                                        pas.Name,
+                                                    }),
+                InventoryProductAdvertisingSpaces = x.InventoryProductAdvertisingSpaces
+                                                    .Where(ipas => !ipas.Deleted.HasValue || !ipas.Deleted.Value)
+                                                    .Select(ipas => new
+                                                    {
+                                                        ipas.Id,
+                                                        ipas.ProductEditionId,
+                                                        ipas.ProductAdvertisingSpaceId,
+                                                        ipas.Quantity
+                                                    }),
+                Code = x.Code.Trim(),
                 x.End,
                 x.Closed,
-                x.Name,
+                Name = x.Name.Trim(),
+                x.PageCount,
                 x.Deleted,
                 CanDelete = x.PublishingOrders.Where(po => !po.Deleted.HasValue || po.Deleted.Value == false).Count() == 0
             })
             .Where(x => !x.Deleted.HasValue || !x.Deleted.Value)
             .ToDataSourceResult(request);
 
-        //var ids = JObject.FromObject(result.Data).AsJEnumerable().Select(x => x["Id"].ToObject<long>()).ToArray();
-        //result.Data = GetQueryableWithIncludes().Where(c => ids.Contains(c.Id)).ToList();
-
         return result;
+    }
+
+    protected override Task<IActionResult> PerformUpdate(long id, ProductEdition xAux)
+    {
+        foreach (var inventoryProductAdvertisingSpace in xAux.InventoryProductAdvertisingSpaces)
+        {
+            if (inventoryProductAdvertisingSpace.Id == 0)
+            {
+                inventoryProductAdvertisingSpace.ProductEditionId = id;
+            }
+        }
+        return base.PerformUpdate(id, xAux);
     }
 }

@@ -3,6 +3,7 @@ using System;
 using LadeviVentasApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LadeviVentasApi.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250828125040_AddInventoryProductAdvertisingSpaceTable")]
+    partial class AddInventoryProductAdvertisingSpaceTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -765,19 +768,13 @@ namespace LadeviVentasApi.Data.Migrations
                     b.Property<string>("DeletedUser")
                         .HasColumnType("text");
 
-                    b.Property<long>("ProductAdvertisingSpaceId")
-                        .HasColumnType("bigint");
-
                     b.Property<long>("ProductEditionId")
                         .HasColumnType("bigint");
 
-                    b.Property<int?>("Quantity")
-                        .IsRequired()
+                    b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ProductAdvertisingSpaceId");
 
                     b.HasIndex("ProductEditionId");
 
@@ -1076,9 +1073,6 @@ namespace LadeviVentasApi.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
-
-                    b.Property<int?>("PageCount")
-                        .HasColumnType("integer");
 
                     b.Property<long>("ProductId")
                         .HasColumnType("bigint");
@@ -1952,19 +1946,11 @@ namespace LadeviVentasApi.Data.Migrations
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.InventoryProductAdvertisingSpace", b =>
                 {
-                    b.HasOne("LadeviVentasApi.Models.Domain.ProductAdvertisingSpace", "ProductAdvertisingSpace")
-                        .WithMany()
-                        .HasForeignKey("ProductAdvertisingSpaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("LadeviVentasApi.Models.Domain.ProductEdition", "ProductEdition")
                         .WithMany("InventoryProductAdvertisingSpaces")
                         .HasForeignKey("ProductEditionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("ProductAdvertisingSpace");
 
                     b.Navigation("ProductEdition");
                 });
@@ -1991,7 +1977,7 @@ namespace LadeviVentasApi.Data.Migrations
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductAdvertisingSpace", b =>
                 {
                     b.HasOne("LadeviVentasApi.Models.Domain.Product", "Product")
-                        .WithMany("ProductAdvertisingSpaces")
+                        .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2219,8 +2205,6 @@ namespace LadeviVentasApi.Data.Migrations
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.Product", b =>
                 {
-                    b.Navigation("ProductAdvertisingSpaces");
-
                     b.Navigation("ProductLocationDiscounts");
 
                     b.Navigation("ProductVolumeDiscounts");
