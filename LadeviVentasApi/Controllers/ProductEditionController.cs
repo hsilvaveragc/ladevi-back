@@ -179,7 +179,7 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
                 x.ProductId,
                 ProductName = x.Product != null ? x.Product.Name.Trim() : "",
                 ProductAdvertisingSpaces = x.Product.ProductAdvertisingSpaces
-                                                    .Where(pas => (!pas.Deleted.HasValue || !pas.Deleted.Value) && pas.Show && pas.Name.EndsWith("print"))
+                                                    .Where(pas => (!pas.Deleted.HasValue || !pas.Deleted.Value) && pas.Show)
                                                     .OrderBy(pas => pas.Name)
                                                     .Select(pas => new
                                                     {
