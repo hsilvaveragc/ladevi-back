@@ -11,9 +11,12 @@ namespace LadeviVentasApi.Models.Domain
         public long InventoryProductAdvertisingSpaceId { get; set; }
         public string ProductAdvertisingSpaceName { get; set; }
         public bool IsEditorial { get; set; }
-
         public bool IsCA { get; set; }
-
         public string Observations { get; set; }
+
+        public long PublishingOrderId { get; set; }
+        public string ContractName { get; set; }
+        public string ClientName { get; set; }
+        public string SellerName { get; set; }
     }
 }

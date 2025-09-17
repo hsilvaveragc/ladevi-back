@@ -47,619 +47,198 @@ public class ProductionController : ControllerBase
     [HttpGet("ProductionInventory")]
     public async Task<IActionResult> GetProductionInventory(long productEditionId)
     {
-        var productEdition = await context.ProductEditions
-                                        .Include(pe => pe.InventoryProductAdvertisingSpaces)
-                                            .ThenInclude(ipas => ipas.ProductAdvertisingSpace)
-                                        .AsNoTracking()
-                                        .Select(pe => new ProductionInventoryProjection
-                                        {
-                                            Id = pe.Id,
-                                            PageCount = pe.PageCount,
-                                            InventoryProductAdvertisingSpaces = pe.InventoryProductAdvertisingSpaces.Select(ipas => new InventorySpaceProjection
-                                            {
-                                                Id = ipas.Id,
-                                                ProductAdvertisingSpaceId = ipas.ProductAdvertisingSpaceId,
-                                                Quantity = ipas.Quantity,
-                                                ProductAdvertisingSpaceName = ipas.ProductAdvertisingSpace.Name
-                                            }).ToList(),
-                                            Deleted = pe.Deleted
-                                        })
-                                        .SingleOrDefaultAsync(pe => (!pe.Deleted.HasValue || !pe.Deleted.Value) && pe.Id == productEditionId);
-
-
+        // 1. Obtener datos
+        var productEdition = await GetProductEditionAsync(productEditionId);
         if (productEdition == null)
-        {
             return NotFound("No se encontró la edición del producto.");
-        }
 
-        var anyInventoryProductAdvertisingSpacesPrint = productEdition.InventoryProductAdvertisingSpaces.Any(x => x.ProductAdvertisingSpaceName.ToLower().EndsWith("print") && x.Quantity.HasValue && x.Quantity != 0);
-        var anyInventoryProductAdvertisingSpacesDigital = productEdition.InventoryProductAdvertisingSpaces.Any(x => x.ProductAdvertisingSpaceName.ToLower().EndsWith("digital") && x.Quantity.HasValue && x.Quantity != 0);
-        var anyInventoryProductAdvertisingSpacesWithoutType = productEdition.InventoryProductAdvertisingSpaces.Any(x => !x.ProductAdvertisingSpaceName.ToLower().EndsWith("digital") && !x.ProductAdvertisingSpaceName.ToLower().EndsWith("print") && x.Quantity.HasValue && x.Quantity != 0);
+        // 2. Validar y determinar tipo de espacios
+        var spaceTypeResult = ValidateAndDetermineSpaceType(productEdition.InventoryProductAdvertisingSpaces);
+        if (!spaceTypeResult.IsValid)
+            return BadRequest(spaceTypeResult.ErrorMessage);
 
-        var typesWithData = 0;
-        if (anyInventoryProductAdvertisingSpacesPrint) typesWithData++;
-        if (anyInventoryProductAdvertisingSpacesDigital) typesWithData++;
-        if (anyInventoryProductAdvertisingSpacesWithoutType) typesWithData++;
+        // 3. Clasificar todos los espacios
+        var spaces = ClassifyAllSpaces(productEdition.InventoryProductAdvertisingSpaces, spaceTypeResult.SpaceType);
 
-        if (typesWithData > 1)
-        {
-            return BadRequest("Solo puede haber espacios de un solo tipo: digital, print o sin tipo");
-        }
+        // 4. Generar template de producción
+        var productionItems = GenerateProductionTemplate(productEditionId, productEdition.PageCount.Value, spaces);
 
-
-        // Determinar el tipo dominante
-        string productAdvertisingSpaceType;
-        if (anyInventoryProductAdvertisingSpacesPrint)
-            productAdvertisingSpaceType = "print";
-        else if (anyInventoryProductAdvertisingSpacesDigital)
-            productAdvertisingSpaceType = "digital";
-        else if (anyInventoryProductAdvertisingSpacesWithoutType)
-            productAdvertisingSpaceType = "generic";
-        else
-        {
-            return BadRequest("No se encontraron espacios publicitarios con cantidad válida");
-        }
-
-
-        var inventorySpaces = productEdition.InventoryProductAdvertisingSpaces;
-
-        var coverEyesInventorySpace = AdvertisingSpaceClassifier.GetCoverEye(inventorySpaces, productAdvertisingSpaceType);
-        var coverFooterInventorySpace = AdvertisingSpaceClassifier.GetCoverFooter(inventorySpaces, productAdvertisingSpaceType);
-        var pageInventorySpace = AdvertisingSpaceClassifier.GetPage(inventorySpaces, productAdvertisingSpaceType);
-        var halfPageInventorySpace = AdvertisingSpaceClassifier.GetHalfPage(inventorySpaces, productAdvertisingSpaceType);
-        var backCoverInventorySpace = AdvertisingSpaceClassifier.GetBackCover(inventorySpaces, productAdvertisingSpaceType);
-
-        List<ProductionItemDto> productionItemsDto = new List<ProductionItemDto>();
-
-
-        var slot = 0;
-        for (int x = 0; x < coverEyesInventorySpace.Quantity; x++)
-        {
-            slot++;
-            productionItemsDto.Add(new ProductionItemDto
-            {
-                ProductEditionId = productEditionId,
-                PageNumber = 1,
-                Slot = slot,
-                InventoryProductAdvertisingSpaceId = coverEyesInventorySpace.Id,
-                ProductAdvertisingSpaceName = coverEyesInventorySpace.ProductAdvertisingSpaceName,
-            });
-        }
-        for (int x = 0; x < coverFooterInventorySpace.Quantity; x++)
-        {
-            slot++;
-            productionItemsDto.Add(new ProductionItemDto
-            {
-                ProductEditionId = productEditionId,
-                PageNumber = 1,
-                Slot = slot,
-                InventoryProductAdvertisingSpaceId = coverFooterInventorySpace.Id,
-                ProductAdvertisingSpaceName = coverFooterInventorySpace.ProductAdvertisingSpaceName,
-            });
-        }
-
-        for (int pageNumber = 2; pageNumber < productEdition.PageCount - 1; pageNumber++)
-        {
-            slot = 0;
-            if (pageNumber % 2 == 0)
-            {
-                for (int x = 0; x < pageInventorySpace.Quantity; x++)
-                {
-                    slot++;
-                    productionItemsDto.Add(new ProductionItemDto
-                    {
-                        ProductEditionId = productEditionId,
-                        PageNumber = pageNumber,
-                        Slot = slot,
-                        InventoryProductAdvertisingSpaceId = pageInventorySpace.Id,
-                        ProductAdvertisingSpaceName = pageInventorySpace.ProductAdvertisingSpaceName,
-                    });
-                }
-            }
-            else
-            {
-                for (int x = 0; x < halfPageInventorySpace.Quantity; x++)
-                {
-                    slot++;
-                    productionItemsDto.Add(new ProductionItemDto
-                    {
-                        ProductEditionId = productEditionId,
-                        PageNumber = pageNumber,
-                        Slot = slot,
-                        InventoryProductAdvertisingSpaceId = halfPageInventorySpace.Id,
-                        ProductAdvertisingSpaceName = halfPageInventorySpace.ProductAdvertisingSpaceName,
-                    });
-                }
-            }
-        }
-        for (int x = 0; x < backCoverInventorySpace.Quantity; x++)
-        {
-            slot++;
-            productionItemsDto.Add(new ProductionItemDto
-            {
-                ProductEditionId = productEditionId,
-                PageNumber = productEdition.PageCount.Value,
-                Slot = slot,
-                InventoryProductAdvertisingSpaceId = backCoverInventorySpace.Id,
-                ProductAdvertisingSpaceName = backCoverInventorySpace.ProductAdvertisingSpaceName,
-            });
-        }
-
-
-
-        // var productionItemsDb = context.ProductionItems.Where(pi => pi.ProductEditionId == productEditionId)
-        //                                             .OrderBy(pi => pi.PageNumber)
-        //                                             .ThenBy(pi => pi.Id)
-        //                                             .AsNoTracking()
-        //                                             .ToList();
-
-        // List<ProductionItem> productionItems = new List<ProductionItem>();
-        // var pagoOneCounter = 0;
-        // for (int i = 1; i < productEdition.PageCount; i++)
-        // {
-        //     if (productionItemsDb.Count != 0)
-        //     {
-        //         var productionItemsExistent = productionItemsDb.Where(pi => pi.PageNumber == i);
-        //         foreach (var productionItemExistent in productionItemsExistent)
-        //         {
-
-        //             productionItems.Add(productionItemExistent);
-        //         }
-        //         continue;
-        //     }
-
-        //     productionItems.Add(new ProductionItem
-        //     {
-        //         PageNumber = i,
-
-        //     });
-        // }
-
-        // var inventory = await context.InventoryProductAdvertisingSpaces
-        //     .AsNoTracking()
-        //     .Include(ipas => ipas.ProductAdvertisingSpace)
-        //     .Where(ipas => (!ipas.Deleted.HasValue || !ipas.Deleted.Value)
-        //                    && ipas.ProductEditionId == productEditionId)
-        //     .Select(ipas => new
-        //     {
-        //         ipas.Id,
-        //         ipas.ProductAdvertisingSpaceId,
-        //         ProductAdvertisingSpaceName = ipas.ProductAdvertisingSpace.Name,
-        //         ipas.Quantity
-        //     })
-        //     .ToListAsync();
-
-        return Ok(productionItemsDto);
+        return Ok(productionItems);
     }
 
-    //   [HttpPost("Orders")]
-    //   public async Task<IActionResult> OrdersBilling([FromBody] List<InvoiceWritingDto> invoicesData)
-    //   {
-    //     if (!invoicesData?.Any() == true)
-    //     {
-    //       return BadRequest("Se requiere al menos una factura para procesar");
-    //     }
-
-    //     var results = new List<object>();
-    //     var errors = new List<string>();
-
-    //     foreach (var invoiceWriting in invoicesData)
-    //     {
-    //       try
-    //       {
-    //         ControllerContext.HttpContext.Items["current-user"] = this.currentAppUser;
-
-    //         var validationResult = await ValidateInvoiceRequest(invoiceWriting);
-    //         if (validationResult != null)
-    //         {
-    //           errors.Add($"Cliente {invoiceWriting.ClientId}: Error de validación");
-    //           continue;
-    //         }
-
-    //         var clientDb = await GetClientById(invoiceWriting.ClientId);
-    //         var xubioPointOfSale = await GetXubioPointOfSale(clientDb);
-    //         var billingNumber = await GetBillingNumberIfNeeded(xubioPointOfSale, clientDb, invoiceWriting);
-
-    //         var xubioReceipt = CreateBaseXubioReceipt(
-    //             clientDb,
-    //             xubioPointOfSale,
-    //             invoiceWriting.GlobalObservations,
-    //             billingNumber);
-
-    //         // Procesar según el tipo de entidad
-    //         var result = invoiceWriting.EntityType.ToUpper() switch
-    //         {
-    //           "ORDER" => await ProcessOrderInvoiceForMultiple(invoiceWriting, xubioReceipt, clientDb, xubioPointOfSale),
-    //           _ => throw new InvalidOperationException("Tipo de entidad no válido")
-    //         };
-
-    //         results.Add(new
-    //         {
-    //           ClientId = invoiceWriting.ClientId,
-    //           ClientName = clientDb.BrandName,
-    //           Success = true,
-    //           NumeroDocumento = result.NumeroDocumento,
-    //           TransaccionId = result.TransaccionId
-    //         });
-    //       }
-    //       catch (Exception ex)
-    //       {
-    //         errors.Add($"Cliente {invoiceWriting.ClientId}: {ex.Message}");
-    //         results.Add(new
-    //         {
-    //           ClientId = invoiceWriting.ClientId,
-    //           Success = false,
-    //           Error = ex.Message
-    //         });
-    //       }
-    //     }
-
-    //     // Retornar resultados
-    //     return Ok(new
-    //     {
-    //       TotalProcessed = invoicesData.Count,
-    //       SuccessCount = results.Count(r => ((dynamic)r).Success),
-    //       ErrorCount = errors.Count,
-    //       Results = results,
-    //       Errors = errors
-    //     });
-    //   }
-
-    //   #region Validation Methods
-
-    //   private async Task<IActionResult?> ValidateInvoiceRequest(InvoiceWritingDto invoiceWriting)
-    //   {
-    //     if (invoiceWriting.ClientId <= 0)
-    //     {
-    //       ModelState.AddModelError("", "ID de cliente inválido");
-    //       return Utils.ActionResultForModelStateValidation(ModelState, HttpContext.Response);
-    //     }
-
-    //     if (string.IsNullOrWhiteSpace(invoiceWriting.EntityType))
-    //     {
-    //       ModelState.AddModelError("", "Tipo de entidad requerido");
-    //       return Utils.ActionResultForModelStateValidation(ModelState, HttpContext.Response);
-    //     }
-
-    //     if (!invoiceWriting.Items?.Any() == true)
-    //     {
-    //       ModelState.AddModelError("", "Items requeridos para la facturación");
-    //       return Utils.ActionResultForModelStateValidation(ModelState, HttpContext.Response);
-    //     }
-
-    //     return null;
-    //   }
-
-    //   private async Task<Client> GetClientById(long clientId)
-    //   {
-    //     var client = await this.context.Clients.AsNoTracking()
-    //         .SingleOrDefaultAsync(c => c.Id == clientId);
-
-    //     if (client == null || client.DeletedDate != null)
-    //       throw new InvalidOperationException("Cliente no encontrado");
-
-    //     if (client.XubioId == null)
-    //       throw new InvalidOperationException("El cliente no tiene un ID de Xubio asociado");
-
-    //     return client;
-    //   }
-
-    //   private async Task<PointOfSaleDtoResponse> GetXubioPointOfSale(Client client)
-    //   {
-    //     var pointsOfSale = await this.xubioService.GetPointOfSaleAsync(client.IsComtur);
-    //     var pointOfSale = pointsOfSale.SingleOrDefault(ps =>
-    //         ps.PuntoVenta == client.BillingPointOfSale.PadLeft(5, '0'));
-
-    //     if (pointOfSale == null)
-    //       throw new InvalidOperationException("El punto de venta no existe en Xubio");
-
-    //     return pointOfSale;
-    //   }
-
-    //   private async Task<BookDocumentDtoResponse?> GetBillingNumberIfNeeded(
-    //       PointOfSaleDtoResponse pointOfSale, Client client, InvoiceWritingDto invoiceWriting)
-    //   {
-    //     if (pointOfSale.ModoNumeracion != ModoNumeracion.Manual)
-    //       return null;
-
-    //     var xubioClient = (await this.xubioService.GetClientsAsync(client.IsComtur, client.IdentificationValue))
-    //         .FirstOrDefault();
-
-    //     if (xubioClient == null)
-    //       throw new InvalidOperationException("El cliente no existe en Xubio");
-
-    //     var documentType = GetDocumentTypeByFiscalCategory(xubioClient.CategoriaFiscal.Codigo, invoiceWriting, client, this.configuration);
-
-    //     var bookDocuments = await this.xubioService.GetBookDocumentsAsync(client.IsComtur, pointOfSale.PuntoVenta);
-    //     return bookDocuments.SingleOrDefault(b => b.TipoComprobante == documentType);
-    //   }
-
-    //   private static string GetDocumentTypeByFiscalCategory(string fiscalCategory, InvoiceWritingDto invoiceWriting, Client client, IConfiguration configuration)
-    //   {
-    //     if (fiscalCategory == CategoriaFiscalFixedValues.ResponsableInscripto)
-    //     {
-    //       if (client.IsBigCompany.HasValue && client.IsBigCompany.Value)
-    //       {
-    //         var totalAmountWithTaxes = CalculateTotalAmountWithTaxes(invoiceWriting);
-    //         var minimumAmountForBigCompany = configuration.GetValue<decimal>("MinimumAmountForBigCompany", 746290.00m);
-    //         if (totalAmountWithTaxes > minimumAmountForBigCompany)
-    //           return "Facturas de Venta A - Crédito";
-    //       }
-    //       return "Facturas de Venta A";
-    //     }
-
-    //     if (fiscalCategory == CategoriaFiscalFixedValues.Monotributista ||
-    //         fiscalCategory == CategoriaFiscalFixedValues.ConsumidorFinal ||
-    //         fiscalCategory == CategoriaFiscalFixedValues.Exento ||
-    //         fiscalCategory == CategoriaFiscalFixedValues.IvaNoAlcanzado)
-    //     {
-    //       return "Facturas de Venta B";
-    //     }
-
-    //     if (fiscalCategory == CategoriaFiscalFixedValues.Exterior)
-    //       return "Facturas de Venta E";
-
-    //     throw new InvalidOperationException("Categoría fiscal del cliente no soportada");
-    //   }
-
-    //   private static decimal CalculateTotalAmountWithTaxes(InvoiceWritingDto invoiceWriting)
-    //   {
-    //     if (invoiceWriting.IsConsolidated)
-    //     {
-    //       return invoiceWriting.Items.Sum(i => i.Amount + i.TotalTaxes);
-    //     }
-    //     else
-    //     {
-    //       return invoiceWriting.Items.Sum(i => (i.Price * i.Quantity) + i.TotalTaxes);
-    //     }
-    //   }
-
-    //   #endregion
-
-    //   #region Processing Methods
-
-    //   private async Task<IActionResult> ProcessContractInvoice(
-    //       InvoiceWritingDto invoiceWriting,
-    //       ReceiptDtoRequest xubioReceipt,
-    //       Client clientDb,
-    //       PointOfSaleDtoResponse xubioPointOfSale)
-    //   {
-    //     var soldSpaceIds = GetEntityIds(invoiceWriting);
-    //     var soldSpacesDb = await this.context.SoldSpaces
-    //                                         .Include(sp => sp.Contract)
-    //                                         .ThenInclude(c => c.BillingCondition)
-    //                                         .Where(s => soldSpaceIds.Contains(s.Id))
-    //                                         .ToListAsync();
-
-    //     if (!soldSpacesDb.Any())
-    //       return BadRequest("No se encontraron espacios vendidos");
-
-    //     // Solo contratos anticipados deben procesarse aquí
-    //     var nonAnticipatedContracts = soldSpacesDb
-    //         .Where(ss => ss.Contract.BillingCondition.Name != BillingCondition.Anticipated)
-    //         .ToList();
-
-    //     if (nonAnticipatedContracts.Any())
-    //     {
-    //       return BadRequest("Hay contratos que no cumplen con la condición de facturación indicada.");
-    //     }
-
-    //     ConfigureReceiptCurrency(xubioReceipt, soldSpacesDb.First().Contract.CurrencyId);
-    //     ConfigureReceiptItems(xubioReceipt, invoiceWriting);
-
-    //     var xubioResponse = await SendReceiptToXubio(xubioReceipt, clientDb, xubioPointOfSale);
-    //     if (xubioResponse.Error != null)
-    //     {
-    //       ModelState.AddModelError("", $"Error en Xubio: {xubioResponse.Error.Description}");
-    //       return Utils.ActionResultForModelStateValidation(ModelState, HttpContext.Response);
-    //     }
-
-    //     await UpdateContractsStatus(soldSpacesDb, xubioResponse.NumeroDocumento, xubioResponse.Transaccionid);
-
-    //     return Ok(new
-    //     {
-    //       xubioResponse.NumeroDocumento,
-    //       xubioResponse.Transaccionid
-    //     });
-    //   }
-
-    //   private async Task<dynamic> ProcessOrderInvoiceForMultiple(
-    //       InvoiceWritingDto invoiceWriting,
-    //       ReceiptDtoRequest xubioReceipt,
-    //       Client clientDb,
-    //       PointOfSaleDtoResponse xubioPointOfSale)
-    //   {
-    //     var publishingOrderIds = GetEntityIds(invoiceWriting);
-    //     var publishingOrdersDb = await this.context.PublishingOrders
-    //         .Include(sp => sp.Contract)
-    //         .ThenInclude(c => c.BillingCondition)
-    //         .Where(s => publishingOrderIds.Contains(s.Id))
-    //         .ToListAsync();
-
-    //     if (!publishingOrdersDb.Any())
-    //       throw new InvalidOperationException("No se encontraron órdenes de publicación");
-
-    //     // Solo órdenes de contratos "Contra Publicación"
-    //     var invalidOrders = publishingOrdersDb
-    //         .Where(po => po.Contract.BillingCondition.Name != BillingCondition.AgainstPublication)
-    //         .ToList();
-
-    //     if (invalidOrders.Any())
-    //     {
-    //       throw new InvalidOperationException("Hay ordenes cuyo contratos no cumplen con la condición de facturación indicada.");
-    //     }
-
-    //     ConfigureReceiptCurrency(xubioReceipt, publishingOrdersDb.First().Contract.CurrencyId);
-    //     ConfigureReceiptItems(xubioReceipt, invoiceWriting);
-
-    //     var xubioResponse = await SendReceiptToXubio(xubioReceipt, clientDb, xubioPointOfSale);
-    //     if (xubioResponse.Error != null)
-    //     {
-    //       throw new InvalidOperationException($"Error en Xubio: {xubioResponse.Error.Description}");
-    //     }
-
-    //     await UpdatePublishingOrdersStatus(publishingOrdersDb, xubioResponse.NumeroDocumento, xubioResponse.Transaccionid);
-
-    //     return new
-    //     {
-    //       NumeroDocumento = xubioResponse.NumeroDocumento,
-    //       TransaccionId = xubioResponse.Transaccionid
-    //     };
-    //   }
-
-    //   private static List<long> GetEntityIds(InvoiceWritingDto invoiceWriting)
-    //   {
-    //     return invoiceWriting.IsConsolidated
-    //         ? invoiceWriting.Items.SelectMany(i => i.ConsolidatedIds).ToList()
-    //         : invoiceWriting.Items.Select(i => i.Id).ToList();
-    //   }
-
-    //   #endregion
-
-    //   #region Receipt Configuration Methods
-
-    //   private static ReceiptDtoRequest CreateBaseXubioReceipt(
-    //       Client clientDb,
-    //       PointOfSaleDtoResponse pointOfSale,
-    //       string observations,
-    //       BookDocumentDtoResponse? bookDocument = null)
-    //   {
-    //     var currentDate = Utils.GetArgentinaDateTime();
-    //     var receiptDtoRequest = new ReceiptDtoRequest
-    //     {
-    //       Tipo = 1, // Tipo de comprobante (1 para factura)
-    //       Cliente = new ClienteRequest { Id = clientDb.XubioId.Value },
-    //       PuntoVenta = new PuntoVentaRequest { Codigo = pointOfSale.Codigo },
-    //       Fecha = currentDate.ToString("yyyy-MM-dd"),
-    //       FechaVto = currentDate.AddDays(30).ToString("yyyy-MM-dd"),
-    //       CondicionDePago = 1, // Condición de pago (1 para Cuenta Corriente)
-    //       Descripcion = observations
-    //     };
-
-    //     if (bookDocument != null)
-    //     {
-    //       var newDocumentNumber = int.Parse(bookDocument.UltimoUtilizado) + 1;
-    //       receiptDtoRequest.NumeroDocumento = $"{bookDocument.LetraComprobante}-{pointOfSale.PuntoVenta}-{newDocumentNumber.ToString().PadLeft(8, '0')}";
-    //     }
-
-    //     return receiptDtoRequest;
-    //   }
-
-    //   private static void ConfigureReceiptCurrency(ReceiptDtoRequest receipt, long? currencyId)
-    //   {
-    //     var currencyCode = currencyId switch
-    //     {
-    //       null => "EUROS",
-    //       2 => "DOLARES",
-    //       _ => "PESOS_ARGENTINOS"
-    //     };
-
-    //     receipt.Moneda = new MonedaRequest { Codigo = currencyCode };
-    //   }
-
-    //   private static void ConfigureReceiptItems(ReceiptDtoRequest receipt, InvoiceWritingDto invoiceWriting)
-    //   {
-    //     if (invoiceWriting.IsConsolidated)
-    //     {
-    //       ConfigureConsolidatedItems(receipt, invoiceWriting);
-    //     }
-    //     else
-    //     {
-    //       ConfigureSeparateItems(receipt, invoiceWriting);
-    //     }
-    //   }
-
-    //   private static void ConfigureConsolidatedItems(ReceiptDtoRequest receipt, InvoiceWritingDto invoiceWriting)
-    //   {
-    //     var totalQuantity = invoiceWriting.Items.Sum(i => i.Quantity);
-    //     var totalAmount = invoiceWriting.Items.Sum(i => i.Amount);
-    //     var consolidatedObservations = string.Join("\n", invoiceWriting.Items.Select(i => i.Observations));
-
-    //     receipt.TransaccionProductoItems = new List<TransaccionProductoItemRequest>
-    //         {
-    //             new()
-    //             {
-    //                 Producto = new ProductoRequest { Codigo = invoiceWriting.Items.First().XubioProductCode },
-    //                 Descripcion = consolidatedObservations,
-    //                 Cantidad = 1,
-    //                 Precio =  totalAmount ,
-    //             }
-    //         };
-    //   }
-
-    //   private static void ConfigureSeparateItems(ReceiptDtoRequest receipt, InvoiceWritingDto invoiceWriting)
-    //   {
-    //     receipt.TransaccionProductoItems = invoiceWriting.Items.Select(item => new TransaccionProductoItemRequest
-    //     {
-    //       Producto = new ProductoRequest { Codigo = item.XubioProductCode },
-    //       Descripcion = item.Observations,
-    //       Cantidad = item.Quantity,
-    //       Precio = item.Price
-    //     }).ToList();
-    //   }
-
-    //   #endregion
-
-    //   #region Xubio Integration Methods
-
-    //   private async Task<ReceiptDtoResponse> SendReceiptToXubio(
-    //       ReceiptDtoRequest receipt,
-    //       Client clientDb,
-    //       PointOfSaleDtoResponse pointOfSale)
-    //   {
-    //     return await this.xubioService.CreateReceiptAsync(
-    //         receipt,
-    //         clientDb.IsComtur,
-    //         pointOfSale.ModoNumeracion == ModoNumeracion.Manual);
-    //   }
-
-    //   #endregion
-
-    //   #region Update Methods
-
-    //   private async Task UpdateContractsStatus(List<SoldSpace> soldSpaces, string documentNumber, long? transactionId)
-    //   {
-    //     var contractIds = soldSpaces.Select(s => s.ContractId).Distinct().ToList();
-    //     var contractsDb = await this.context.Contracts
-    //         .Include(c => c.SoldSpaces)
-    //         .Where(c => contractIds.Contains(c.Id))
-    //         .ToListAsync();
-
-    //     foreach (var contract in contractsDb)
-    //     {
-    //       UpdateContractInvoiceNumbers(contract, documentNumber, transactionId);
-    //     }
-
-    //     await this.context.SaveChangesAsync();
-    //   }
-
-    //   private static void UpdateContractInvoiceNumbers(Contract contract, string documentNumber, long? transactionId)
-    //   {
-    //     var invoiceNumbers = contract.InvoiceNumber
-    //         .Split(',', StringSplitOptions.RemoveEmptyEntries)
-    //         .Select(i => i.ToUpper().Trim())
-    //         .ToHashSet();
-
-    //     invoiceNumbers.Add(documentNumber);
-    //     contract.InvoiceNumber = string.Join(",", invoiceNumbers);
-    //     contract.XubioTransactionId = transactionId;
-    //     foreach (var soldSpace in contract.SoldSpaces)
-    //     {
-    //       soldSpace.XubioDocumentNumber = documentNumber;
-    //     }
-    //   }
-
-    //   private async Task UpdatePublishingOrdersStatus(List<PublishingOrder> publishingOrders, string documentNumber, long? transactionId)
-    //   {
-    //     publishingOrders.ForEach(po =>
-    //     {
-    //       po.XubioDocumentNumber = documentNumber;
-    //       po.InvoiceNumber = documentNumber;
-    //       po.XubioTransactionId = transactionId;
-    //     });
-
-    //     await this.context.SaveChangesAsync();
-    //   }
-
-    //   #endregion  
+    private async Task<ProductionInventoryProjection> GetProductEditionAsync(long productEditionId)
+    {
+        return await context.ProductEditions
+                            .Include(pe => pe.InventoryProductAdvertisingSpaces)
+                                .ThenInclude(ipas => ipas.ProductAdvertisingSpace)
+                            .AsNoTracking()
+                            .Select(pe => new ProductionInventoryProjection
+                            {
+                                Id = pe.Id,
+                                PageCount = pe.PageCount,
+                                InventoryProductAdvertisingSpaces = pe.InventoryProductAdvertisingSpaces.Select(ipas => new InventorySpaceProjection
+                                {
+                                    Id = ipas.Id,
+                                    ProductAdvertisingSpaceId = ipas.ProductAdvertisingSpaceId,
+                                    Quantity = ipas.Quantity,
+                                    ProductAdvertisingSpaceName = ipas.ProductAdvertisingSpace.Name
+                                }).ToList(),
+                                Deleted = pe.Deleted
+                            })
+                            .SingleOrDefaultAsync(pe => (!pe.Deleted.HasValue || !pe.Deleted.Value) && pe.Id == productEditionId);
+    }
+
+    private (bool IsValid, string ErrorMessage, string SpaceType) ValidateAndDetermineSpaceType(List<InventorySpaceProjection> spaces)
+    {
+        var hasPrint = spaces.Any(x => x.ProductAdvertisingSpaceName.ToLower().EndsWith("print") && x.Quantity.HasValue && x.Quantity != 0);
+        var hasDigital = spaces.Any(x => x.ProductAdvertisingSpaceName.ToLower().EndsWith("digital") && x.Quantity.HasValue && x.Quantity != 0);
+        var hasGeneric = spaces.Any(x => !x.ProductAdvertisingSpaceName.ToLower().EndsWith("digital") &&
+                                         !x.ProductAdvertisingSpaceName.ToLower().EndsWith("print") &&
+                                         x.Quantity.HasValue && x.Quantity != 0);
+
+        var typesCount = (hasPrint ? 1 : 0) + (hasDigital ? 1 : 0) + (hasGeneric ? 1 : 0);
+
+        if (typesCount > 1)
+            return (false, "Solo puede haber espacios de un solo tipo: digital, print o sin tipo", null);
+
+        if (typesCount == 0)
+            return (false, "No se encontraron espacios publicitarios con cantidad válida", null);
+
+        string spaceType = hasPrint ? "print" : hasDigital ? "digital" : "generic";
+        return (true, null, spaceType);
+    }
+
+    private ClassifiedSpaces ClassifyAllSpaces(List<InventorySpaceProjection> inventorySpaces, string spaceType)
+    {
+        return new ClassifiedSpaces
+        {
+            CoverEye = AdvertisingSpaceClassifier.GetCoverEye(inventorySpaces, spaceType),
+            CoverFooter = AdvertisingSpaceClassifier.GetCoverFooter(inventorySpaces, spaceType),
+            InsideCover = AdvertisingSpaceClassifier.GetInsideCover(inventorySpaces, spaceType),
+            Page = AdvertisingSpaceClassifier.GetPage(inventorySpaces, spaceType),
+            InsideBackCover = AdvertisingSpaceClassifier.GetInsideBackCover(inventorySpaces, spaceType),
+            BackCover = AdvertisingSpaceClassifier.GetBackCover(inventorySpaces, spaceType),
+            HalfPage = AdvertisingSpaceClassifier.GetHalfPage(inventorySpaces, spaceType),
+            CuarterPage = AdvertisingSpaceClassifier.GetCuarterPage(inventorySpaces, spaceType),
+            FooterPage = AdvertisingSpaceClassifier.GetFooterPage(inventorySpaces, spaceType),
+            OtherSpaces = AdvertisingSpaceClassifier.GetOtherSpaces(inventorySpaces, spaceType).ToList()
+        };
+    }
+
+    private List<ProductionItemDto> GenerateProductionTemplate(long productEditionId, int pageCount, ClassifiedSpaces spaces)
+    {
+        var productionItems = new List<ProductionItemDto>();
+
+        // Página 1 (Tapa)
+        productionItems.AddRange(GenerateCoverPage(productEditionId, spaces));
+
+        // Páginas internas (2 hasta penúltima)
+        for (int pageNumber = 2; pageNumber < pageCount; pageNumber++)
+        {
+            productionItems.AddRange(GenerateInnerPage(productEditionId, pageNumber, pageCount, spaces));
+        }
+
+        // Última página (Contratapa)
+        productionItems.AddRange(GenerateBackCoverPage(productEditionId, pageCount, spaces));
+
+        return productionItems;
+    }
+
+    private List<ProductionItemDto> GenerateCoverPage(long productEditionId, ClassifiedSpaces spaces)
+    {
+        var items = new List<ProductionItemDto>();
+        var slot = 0;
+
+        // Ojos de tapa
+        AddSpaceItems(items, spaces.CoverEye, productEditionId, 1, ref slot);
+
+        // Pie de tapa
+        AddSpaceItems(items, spaces.CoverFooter, productEditionId, 1, ref slot);
+
+        return items;
+    }
+
+    private List<ProductionItemDto> GenerateInnerPage(long productEditionId, int pageNumber, int pageCount, ClassifiedSpaces spaces)
+    {
+        var items = new List<ProductionItemDto>();
+        var slot = 0;
+
+        // Página 2 - Verificar retiro de tapa
+        if (pageNumber == 2 && spaces.InsideCover != null)
+        {
+            AddSpaceItems(items, spaces.InsideCover, productEditionId, pageNumber, ref slot);
+            return items;
+        }
+
+        // Penúltima página - Verificar retiro de contratapa
+        if (pageNumber == pageCount - 1 && spaces.InsideBackCover != null)
+        {
+            AddSpaceItems(items, spaces.InsideBackCover, productEditionId, pageNumber, ref slot);
+            return items;
+        }
+
+        // Lógica normal par/impar
+        if (pageNumber % 2 == 0)
+        {
+            // Páginas pares - Página completa
+            AddSpaceItems(items, spaces.Page, productEditionId, pageNumber, ref slot);
+        }
+        else
+        {
+            // Páginas impares - En orden: medias, cuartos, pies, otros
+            AddSpaceItems(items, spaces.HalfPage, productEditionId, pageNumber, ref slot);
+            AddSpaceItems(items, spaces.CuarterPage, productEditionId, pageNumber, ref slot);
+            AddSpaceItems(items, spaces.FooterPage, productEditionId, pageNumber, ref slot);
+
+            // Otros espacios
+            foreach (var otherSpace in spaces.OtherSpaces)
+            {
+                AddSpaceItems(items, otherSpace, productEditionId, pageNumber, ref slot);
+            }
+        }
+
+        return items;
+    }
+
+    private List<ProductionItemDto> GenerateBackCoverPage(long productEditionId, int pageCount, ClassifiedSpaces spaces)
+    {
+        var items = new List<ProductionItemDto>();
+        var slot = 0;
+
+        AddSpaceItems(items, spaces.BackCover, productEditionId, pageCount, ref slot);
+
+        return items;
+    }
+
+    private void AddSpaceItems(List<ProductionItemDto> items, InventorySpaceProjection space, long productEditionId, int pageNumber, ref int slot)
+    {
+        if (space?.Quantity == null || space.Quantity <= 0) return;
+
+        for (int i = 0; i < space.Quantity; i++)
+        {
+            slot++;
+            items.Add(new ProductionItemDto
+            {
+                ProductEditionId = productEditionId,
+                PageNumber = pageNumber,
+                Slot = slot,
+                InventoryProductAdvertisingSpaceId = space.Id,
+                ProductAdvertisingSpaceName = space.ProductAdvertisingSpaceName,
+            });
+        }
+    }
+
+    private class ClassifiedSpaces
+    {
+        public InventorySpaceProjection CoverEye { get; set; }
+        public InventorySpaceProjection CoverFooter { get; set; }
+        public InventorySpaceProjection InsideCover { get; set; }
+        public InventorySpaceProjection Page { get; set; }
+        public InventorySpaceProjection InsideBackCover { get; set; }
+        public InventorySpaceProjection BackCover { get; set; }
+        public InventorySpaceProjection HalfPage { get; set; }
+        public InventorySpaceProjection CuarterPage { get; set; }
+        public InventorySpaceProjection FooterPage { get; set; }
+        public List<InventorySpaceProjection> OtherSpaces { get; set; }
+    }
 }
