@@ -11,6 +11,8 @@ using LadeviVentasApi.Services.Xubio.FixedValues;
 using Microsoft.Extensions.Configuration;
 using LadeviVentasApi.Data.Migrations;
 using System.Text.RegularExpressions;
+using LadeviVentasApi.Helpers.Utilities;
+using LadeviVentasApi.Projections;
 
 [Route("api/[controller]")]
 [ApiController]
@@ -49,21 +51,21 @@ public class ProductionController : ControllerBase
                                         .Include(pe => pe.InventoryProductAdvertisingSpaces)
                                             .ThenInclude(ipas => ipas.ProductAdvertisingSpace)
                                         .AsNoTracking()
-                                        .Select(pe => new
+                                        .Select(pe => new ProductionInventoryProjection
                                         {
-                                            pe.Id,
-                                            pe.PageCount,
-                                            InventoryProductAdvertisingSpaces = pe.InventoryProductAdvertisingSpaces.Select(ipas => new
+                                            Id = pe.Id,
+                                            PageCount = pe.PageCount,
+                                            InventoryProductAdvertisingSpaces = pe.InventoryProductAdvertisingSpaces.Select(ipas => new InventorySpaceProjection
                                             {
-                                                ipas.Id,
-
-                                                ipas.ProductAdvertisingSpaceId,
-                                                ipas.Quantity,
+                                                Id = ipas.Id,
+                                                ProductAdvertisingSpaceId = ipas.ProductAdvertisingSpaceId,
+                                                Quantity = ipas.Quantity,
                                                 ProductAdvertisingSpaceName = ipas.ProductAdvertisingSpace.Name
-                                            }),
-                                            pe.Deleted
+                                            }).ToList(),
+                                            Deleted = pe.Deleted
                                         })
                                         .SingleOrDefaultAsync(pe => (!pe.Deleted.HasValue || !pe.Deleted.Value) && pe.Id == productEditionId);
+
 
         if (productEdition == null)
         {
@@ -74,55 +76,160 @@ public class ProductionController : ControllerBase
         var anyInventoryProductAdvertisingSpacesDigital = productEdition.InventoryProductAdvertisingSpaces.Any(x => x.ProductAdvertisingSpaceName.ToLower().EndsWith("digital") && x.Quantity.HasValue && x.Quantity != 0);
         var anyInventoryProductAdvertisingSpacesWithoutType = productEdition.InventoryProductAdvertisingSpaces.Any(x => !x.ProductAdvertisingSpaceName.ToLower().EndsWith("digital") && !x.ProductAdvertisingSpaceName.ToLower().EndsWith("print") && x.Quantity.HasValue && x.Quantity != 0);
 
-        if (anyInventoryProductAdvertisingSpacesPrint && anyInventoryProductAdvertisingSpacesDigital && anyInventoryProductAdvertisingSpacesWithoutType)
+        var typesWithData = 0;
+        if (anyInventoryProductAdvertisingSpacesPrint) typesWithData++;
+        if (anyInventoryProductAdvertisingSpacesDigital) typesWithData++;
+        if (anyInventoryProductAdvertisingSpacesWithoutType) typesWithData++;
+
+        if (typesWithData > 1)
         {
-            return BadRequest("Solo puede haber espcaios de un solo tipo digital o print o sin tipo");
+            return BadRequest("Solo puede haber espacios de un solo tipo: digital, print o sin tipo");
         }
 
-        var productAdvertisingSpaceType = anyInventoryProductAdvertisingSpacesPrint ? "print" : "digital";
 
-        var coverEyes = productEdition.InventoryProductAdvertisingSpaces
-                                    .FirstOrDefault(ipas => (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo\b", RegexOptions.IgnoreCase) ||
-                                                            Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojos\b", RegexOptions.IgnoreCase)) &&
-                                                            Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\tapa\b", RegexOptions.IgnoreCase) &&
-                                                            Regex.IsMatch(ipas.ProductAdvertisingSpaceName, $@"\b{productAdvertisingSpaceType}\b", RegexOptions.IgnoreCase));
-
-        var coverFooter = productEdition.InventoryProductAdvertisingSpaces
-                                    .FirstOrDefault(ipas => Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\pie\b", RegexOptions.IgnoreCase) &&
-                                                            Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\tapa\b", RegexOptions.IgnoreCase) &&
-                                                            Regex.IsMatch(ipas.ProductAdvertisingSpaceName, $@"\b{productAdvertisingSpaceType}\b", RegexOptions.IgnoreCase));
-
-        var page = productEdition.InventoryProductAdvertisingSpaces
-                            .FirstOrDefault(ipas => (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpágina\b", RegexOptions.IgnoreCase) ||
-                                                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase)) &&
-                                                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, $@"\b{productAdvertisingSpaceType}\b", RegexOptions.IgnoreCase));
-
-
-        List<ProductionItem> productionItems = new List<ProductionItem>();
-        for (int i = 1; i < productEdition.PageCount; i++)
+        // Determinar el tipo dominante
+        string productAdvertisingSpaceType;
+        if (anyInventoryProductAdvertisingSpacesPrint)
+            productAdvertisingSpaceType = "print";
+        else if (anyInventoryProductAdvertisingSpacesDigital)
+            productAdvertisingSpaceType = "digital";
+        else if (anyInventoryProductAdvertisingSpacesWithoutType)
+            productAdvertisingSpaceType = "generic";
+        else
         {
-            productionItems.Add(new ProductionItem
-            {
-                PageNumber = i,
+            return BadRequest("No se encontraron espacios publicitarios con cantidad válida");
+        }
 
+
+        var inventorySpaces = productEdition.InventoryProductAdvertisingSpaces;
+
+        var coverEyesInventorySpace = AdvertisingSpaceClassifier.GetCoverEye(inventorySpaces, productAdvertisingSpaceType);
+        var coverFooterInventorySpace = AdvertisingSpaceClassifier.GetCoverFooter(inventorySpaces, productAdvertisingSpaceType);
+        var pageInventorySpace = AdvertisingSpaceClassifier.GetPage(inventorySpaces, productAdvertisingSpaceType);
+        var halfPageInventorySpace = AdvertisingSpaceClassifier.GetHalfPage(inventorySpaces, productAdvertisingSpaceType);
+        var backCoverInventorySpace = AdvertisingSpaceClassifier.GetBackCover(inventorySpaces, productAdvertisingSpaceType);
+
+        List<ProductionItemDto> productionItemsDto = new List<ProductionItemDto>();
+
+
+        var slot = 0;
+        for (int x = 0; x < coverEyesInventorySpace.Quantity; x++)
+        {
+            slot++;
+            productionItemsDto.Add(new ProductionItemDto
+            {
+                ProductEditionId = productEditionId,
+                PageNumber = 1,
+                Slot = slot,
+                InventoryProductAdvertisingSpaceId = coverEyesInventorySpace.Id,
+                ProductAdvertisingSpaceName = coverEyesInventorySpace.ProductAdvertisingSpaceName,
+            });
+        }
+        for (int x = 0; x < coverFooterInventorySpace.Quantity; x++)
+        {
+            slot++;
+            productionItemsDto.Add(new ProductionItemDto
+            {
+                ProductEditionId = productEditionId,
+                PageNumber = 1,
+                Slot = slot,
+                InventoryProductAdvertisingSpaceId = coverFooterInventorySpace.Id,
+                ProductAdvertisingSpaceName = coverFooterInventorySpace.ProductAdvertisingSpaceName,
             });
         }
 
-        var inventory = await context.InventoryProductAdvertisingSpaces
-            .AsNoTracking()
-            .Include(ipas => ipas.ProductAdvertisingSpace)
-            .Where(ipas => (!ipas.Deleted.HasValue || !ipas.Deleted.Value)
-                           && ipas.ProductEditionId == productEditionId)
-            .Select(ipas => new
+        for (int pageNumber = 2; pageNumber < productEdition.PageCount - 1; pageNumber++)
+        {
+            slot = 0;
+            if (pageNumber % 2 == 0)
             {
-                ipas.Id,
-                ipas.ProductAdvertisingSpaceId,
-                ProductAdvertisingSpaceName = ipas.ProductAdvertisingSpace.Name,
-                ipas.Quantity
-            })
-            .ToListAsync();
+                for (int x = 0; x < pageInventorySpace.Quantity; x++)
+                {
+                    slot++;
+                    productionItemsDto.Add(new ProductionItemDto
+                    {
+                        ProductEditionId = productEditionId,
+                        PageNumber = pageNumber,
+                        Slot = slot,
+                        InventoryProductAdvertisingSpaceId = pageInventorySpace.Id,
+                        ProductAdvertisingSpaceName = pageInventorySpace.ProductAdvertisingSpaceName,
+                    });
+                }
+            }
+            else
+            {
+                for (int x = 0; x < halfPageInventorySpace.Quantity; x++)
+                {
+                    slot++;
+                    productionItemsDto.Add(new ProductionItemDto
+                    {
+                        ProductEditionId = productEditionId,
+                        PageNumber = pageNumber,
+                        Slot = slot,
+                        InventoryProductAdvertisingSpaceId = halfPageInventorySpace.Id,
+                        ProductAdvertisingSpaceName = halfPageInventorySpace.ProductAdvertisingSpaceName,
+                    });
+                }
+            }
+        }
+        for (int x = 0; x < backCoverInventorySpace.Quantity; x++)
+        {
+            slot++;
+            productionItemsDto.Add(new ProductionItemDto
+            {
+                ProductEditionId = productEditionId,
+                PageNumber = productEdition.PageCount.Value,
+                Slot = slot,
+                InventoryProductAdvertisingSpaceId = backCoverInventorySpace.Id,
+                ProductAdvertisingSpaceName = backCoverInventorySpace.ProductAdvertisingSpaceName,
+            });
+        }
 
-        return Ok(inventory);
+
+
+        // var productionItemsDb = context.ProductionItems.Where(pi => pi.ProductEditionId == productEditionId)
+        //                                             .OrderBy(pi => pi.PageNumber)
+        //                                             .ThenBy(pi => pi.Id)
+        //                                             .AsNoTracking()
+        //                                             .ToList();
+
+        // List<ProductionItem> productionItems = new List<ProductionItem>();
+        // var pagoOneCounter = 0;
+        // for (int i = 1; i < productEdition.PageCount; i++)
+        // {
+        //     if (productionItemsDb.Count != 0)
+        //     {
+        //         var productionItemsExistent = productionItemsDb.Where(pi => pi.PageNumber == i);
+        //         foreach (var productionItemExistent in productionItemsExistent)
+        //         {
+
+        //             productionItems.Add(productionItemExistent);
+        //         }
+        //         continue;
+        //     }
+
+        //     productionItems.Add(new ProductionItem
+        //     {
+        //         PageNumber = i,
+
+        //     });
+        // }
+
+        // var inventory = await context.InventoryProductAdvertisingSpaces
+        //     .AsNoTracking()
+        //     .Include(ipas => ipas.ProductAdvertisingSpace)
+        //     .Where(ipas => (!ipas.Deleted.HasValue || !ipas.Deleted.Value)
+        //                    && ipas.ProductEditionId == productEditionId)
+        //     .Select(ipas => new
+        //     {
+        //         ipas.Id,
+        //         ipas.ProductAdvertisingSpaceId,
+        //         ProductAdvertisingSpaceName = ipas.ProductAdvertisingSpace.Name,
+        //         ipas.Quantity
+        //     })
+        //     .ToListAsync();
+
+        return Ok(productionItemsDto);
     }
 
     //   [HttpPost("Orders")]

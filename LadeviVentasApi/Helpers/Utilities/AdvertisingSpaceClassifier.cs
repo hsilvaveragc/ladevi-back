@@ -2,216 +2,202 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using LadeviVentasApi.Projections;
 
-public class AdvertisingSpaceClassifier
+namespace LadeviVentasApi.Helpers.Utilities
 {
-    // Método principal para obtener cada tipo específico
-    public static string GetOjoTapaPrint(IEnumerable<dynamic> inventorySpaces)
+    public class AdvertisingSpaceClassifier
     {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo[s]?\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetOjoTapaDigital(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo[s]?\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetOjoTapa(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo[s]?\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
-                !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital)\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetPieTapa(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpie\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
-                !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital)\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetPieTapaPrint(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpie\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetPieTapaDigital(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpie\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetPaginaPrint(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase) &&
-                !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bmedia\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetPaginaDigital(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase) &&
-                !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bmedia\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetPagina(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"^página?$", RegexOptions.IgnoreCase) ||
-                (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase) &&
-                 !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital|media|completa|entera|de)\b", RegexOptions.IgnoreCase)))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetMediaPaginaPrint(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bmedia\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetContratapa(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bcontratapa\b", RegexOptions.IgnoreCase) &&
-                !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital)\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetContratapaPrint(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bcontratapa\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    public static string GetContratapaDigital(IEnumerable<dynamic> inventorySpaces)
-    {
-        return inventorySpaces
-            .FirstOrDefault(ipas =>
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bcontratapa\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase))
-            ?.ProductAdvertisingSpaceName;
-    }
-
-    // Método para clasificar todo en una sola pasada
-    public static Dictionary<string, List<string>> ClassifyAllSpaces(IEnumerable<string> allSpaces)
-    {
-        var classified = new Dictionary<string, List<string>>
+        // Métodos principales que devuelven un valor único o null
+        public static InventorySpaceProjection GetCoverEye(IEnumerable<InventorySpaceProjection> inventorySpaces, string spaceType)
         {
-            ["OjoTapaPrint"] = new List<string>(),
-            ["OjoTapaDigital"] = new List<string>(),
-            ["OjoTapa"] = new List<string>(),
-            ["PieTapa"] = new List<string>(),
-            ["PieTapaPrint"] = new List<string>(),
-            ["PieTapaDigital"] = new List<string>(),
-            ["PaginaPrint"] = new List<string>(),
-            ["PaginaDigital"] = new List<string>(),
-            ["Pagina"] = new List<string>(),
-            ["MediaPaginaPrint"] = new List<string>(),
-            ["Contratapa"] = new List<string>(),
-            ["ContratapaPrint"] = new List<string>(),
-            ["ContratapaDigital"] = new List<string>(),
-            ["Others"] = new List<string>()
-        };
-
-        foreach (var space in allSpaces)
-        {
-            if (Regex.IsMatch(space, @"\bojo[s]?\b", RegexOptions.IgnoreCase) &&
-                Regex.IsMatch(space, @"\btapa\b", RegexOptions.IgnoreCase))
+            return spaceType.ToLower() switch
             {
-                if (Regex.IsMatch(space, @"\bprint\b", RegexOptions.IgnoreCase))
-                    classified["OjoTapaPrint"].Add(space);
-                else if (Regex.IsMatch(space, @"\bdigital\b", RegexOptions.IgnoreCase))
-                    classified["OjoTapaDigital"].Add(space);
-                else
-                    classified["OjoTapa"].Add(space);
-            }
-            else if (Regex.IsMatch(space, @"\bpie\b", RegexOptions.IgnoreCase) &&
-                     Regex.IsMatch(space, @"\btapa\b", RegexOptions.IgnoreCase))
-            {
-                if (Regex.IsMatch(space, @"\bprint\b", RegexOptions.IgnoreCase))
-                    classified["PieTapaPrint"].Add(space);
-                else if (Regex.IsMatch(space, @"\bdigital\b", RegexOptions.IgnoreCase))
-                    classified["PieTapaDigital"].Add(space);
-                else
-                    classified["PieTapa"].Add(space);
-            }
-            else if (Regex.IsMatch(space, @"\bcontratapa\b", RegexOptions.IgnoreCase))
-            {
-                if (Regex.IsMatch(space, @"\bprint\b", RegexOptions.IgnoreCase))
-                    classified["ContratapaPrint"].Add(space);
-                else if (Regex.IsMatch(space, @"\bdigital\b", RegexOptions.IgnoreCase))
-                    classified["ContratapaDigital"].Add(space);
-                else
-                    classified["Contratapa"].Add(space);
-            }
-            else if (Regex.IsMatch(space, @"\bmedia\b", RegexOptions.IgnoreCase) &&
-                     Regex.IsMatch(space, @"\bpagina\b", RegexOptions.IgnoreCase) &&
-                     Regex.IsMatch(space, @"\bprint\b", RegexOptions.IgnoreCase))
-            {
-                classified["MediaPaginaPrint"].Add(space);
-            }
-            else if (Regex.IsMatch(space, @"\bpagina\b", RegexOptions.IgnoreCase))
-            {
-                if (Regex.IsMatch(space, @"\bprint\b", RegexOptions.IgnoreCase) &&
-                    !Regex.IsMatch(space, @"\bmedia\b", RegexOptions.IgnoreCase))
-                    classified["PaginaPrint"].Add(space);
-                else if (Regex.IsMatch(space, @"\bdigital\b", RegexOptions.IgnoreCase) &&
-                         !Regex.IsMatch(space, @"\bmedia\b", RegexOptions.IgnoreCase))
-                    classified["PaginaDigital"].Add(space);
-                else if (Regex.IsMatch(space, @"^página?$", RegexOptions.IgnoreCase) ||
-                         !Regex.IsMatch(space, @"\b(print|digital|media|completa|entera|de)\b", RegexOptions.IgnoreCase))
-                    classified["Pagina"].Add(space);
-                else
-                    classified["Others"].Add(space);
-            }
-            else
-            {
-                classified["Others"].Add(space);
-            }
+                "print" => GetOjoTapaPrintObjects(inventorySpaces).FirstOrDefault(),
+                "digital" => GetOjoTapaDigitalObjects(inventorySpaces).FirstOrDefault(),
+                _ => GetOjoTapaGenericObjects(inventorySpaces).FirstOrDefault()
+            };
         }
 
-        return classified;
+        public static InventorySpaceProjection GetCoverFooter(IEnumerable<InventorySpaceProjection> inventorySpaces, string spaceType)
+        {
+            return spaceType.ToLower() switch
+            {
+                "print" => GetPieTapaPrintObjects(inventorySpaces).FirstOrDefault(),
+                "digital" => GetPieTapaDigitalObjects(inventorySpaces).FirstOrDefault(),
+                _ => GetPieTapaGenericObjects(inventorySpaces).FirstOrDefault()
+            };
+        }
+
+        public static InventorySpaceProjection GetPage(IEnumerable<InventorySpaceProjection> inventorySpaces, string spaceType)
+        {
+            return spaceType.ToLower() switch
+            {
+                "print" => GetPaginaPrintObjects(inventorySpaces).FirstOrDefault(),
+                "digital" => GetPaginaDigitalObjects(inventorySpaces).FirstOrDefault(),
+                _ => GetPaginaObjects(inventorySpaces).FirstOrDefault()
+            };
+        }
+
+        public static InventorySpaceProjection GetBackCover(IEnumerable<InventorySpaceProjection> inventorySpaces, string spaceType)
+        {
+            return spaceType.ToLower() switch
+            {
+                "print" => GetContratapaPrintObjects(inventorySpaces).FirstOrDefault(),
+                "digital" => GetContratapaDigitalObjects(inventorySpaces).FirstOrDefault(),
+                _ => GetContratapaObjects(inventorySpaces).FirstOrDefault()
+            };
+        }
+
+        public static InventorySpaceProjection GetHalfPage(IEnumerable<InventorySpaceProjection> inventorySpaces, string spaceType)
+        {
+            return spaceType.ToLower() switch
+            {
+                "print" => GetMediaPaginaPrintObjects(inventorySpaces).FirstOrDefault(),
+                _ => null
+            };
+        }
+
+        // Métodos específicos internos (ahora privados)
+        private static IEnumerable<InventorySpaceProjection> GetOjoTapaObjects(IEnumerable<InventorySpaceProjection> inventorySpaces, string productAdvertisingSpaceType)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo\b", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojos\b", RegexOptions.IgnoreCase)) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, $@"\b{productAdvertisingSpaceType}\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetOjoTapaPrintObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo\b", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojos\b", RegexOptions.IgnoreCase)) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetOjoTapaDigitalObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo\b", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojos\b", RegexOptions.IgnoreCase)) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetOjoTapaGenericObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojo\b", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bojos\b", RegexOptions.IgnoreCase)) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital)\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetPieTapaObjects(IEnumerable<InventorySpaceProjection> inventorySpaces, string productAdvertisingSpaceType)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpie\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, $@"\b{productAdvertisingSpaceType}\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetPieTapaPrintObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpie\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetPieTapaDigitalObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpie\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetPieTapaGenericObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpie\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\btapa\b", RegexOptions.IgnoreCase) &&
+                    !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital)\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetPaginaObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"^página?$", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"^pagina$", RegexOptions.IgnoreCase)) ||
+                    ((Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpágina\b", RegexOptions.IgnoreCase) ||
+                      Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase)) &&
+                     !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital|media|completa|entera|de)\b", RegexOptions.IgnoreCase)));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetPaginaPrintObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpágina\b", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase)) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase) &&
+                    !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bmedia\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetPaginaDigitalObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpágina\b", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase)) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase) &&
+                    !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bmedia\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetContratapaObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bcontratapa\b", RegexOptions.IgnoreCase) &&
+                    !Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\b(print|digital)\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetContratapaPrintObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bcontratapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetContratapaDigitalObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bcontratapa\b", RegexOptions.IgnoreCase) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bdigital\b", RegexOptions.IgnoreCase));
+        }
+
+        private static IEnumerable<InventorySpaceProjection> GetMediaPaginaPrintObjects(IEnumerable<InventorySpaceProjection> inventorySpaces)
+        {
+            return inventorySpaces
+                .Where(ipas =>
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bmedia\b", RegexOptions.IgnoreCase) &&
+                    (Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpágina\b", RegexOptions.IgnoreCase) ||
+                     Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bpagina\b", RegexOptions.IgnoreCase)) &&
+                    Regex.IsMatch(ipas.ProductAdvertisingSpaceName, @"\bprint\b", RegexOptions.IgnoreCase));
+        }
     }
 }
-
