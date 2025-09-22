@@ -5,17 +5,32 @@ namespace LadeviVentasApi.Models.Domain
 {
     public class ProductEdition : BaseEntity
     {
-        [Required, MinLength(2), MaxLength(20)] public string Code { get; set; }
-        [Required, MinLength(2), MaxLength(200)] public string Name { get; set; }
+        [Required, MinLength(2), MaxLength(20)]
+        public string Code { get; set; }
+
+        [Required, MinLength(2), MaxLength(200)]
+        public string Name { get; set; }
+
+        [Required, FkCheck(TypeToCheck = typeof(Product))]
+        public long ProductId { get; set; }
+
         public Product? Product { get; set; }
-        public IList<PublishingOrder>? PublishingOrders { get; set; }
-        [Required, FkCheck(TypeToCheck = typeof(Product))] public long ProductId { get; set; }
-        [Required] public DateTime Start { get; set; }
+
+        [Required]
+        public DateTime Start { get; set; }
+
+        [Required]
+        public DateTime End { get; set; }
+
         public bool Closed { get; set; }
-        [Required] public DateTime End { get; set; }
+
         public int? PageCount { get; set; }
 
+        public IList<PublishingOrder>? PublishingOrders { get; set; }
+
         public IList<InventoryProductAdvertisingSpace>? InventoryProductAdvertisingSpaces { get; set; }
+
+        public IList<ProductionItem>? ProductionItems { get; set; }
 
         protected override IList<ValidationResult> PerformValidate(ValidationContext validationContext, ApplicationDbContext context, Lazy<ApplicationUser> applicationUser)
         {

@@ -17,10 +17,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "others", "others", "{35AC7C
 		Dockerfile.xunit = Dockerfile.xunit
 		nuget.config = nuget.config
 		run-tests.sh = run-tests.sh
-	EndProjectSection
+	EndProjectSectionScheduler
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Scheduler", "Scheduler\Scheduler.csproj", "{2B6C7E53-6AED-4517-AF25-A064D848C468}"
-EndProject
+# Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Scheduler", "Scheduler\Scheduler.csproj", "{2B6C7E53-6AED-4517-AF25-A064D848C468}"
+# EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{5380C38C-FA83-4D2D-A51E-35E90357E935}"
 EndProject
 Global
