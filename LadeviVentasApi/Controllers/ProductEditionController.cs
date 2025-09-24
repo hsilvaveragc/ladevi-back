@@ -300,7 +300,7 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
             {
                 Id = pe.Id,
                 PageCount = pe.PageCount,
-                InventoryProductAdvertisingSpaces = pe.InventoryProductAdvertisingSpaces.Select(ipas => new InventorySpaceProjection
+                InventoryProductAdvertisingSpaces = pe.InventoryProductAdvertisingSpaces.Where(ipas => ipas.Quantity != 0).Select(ipas => new InventorySpaceProjection
                 {
                     Id = ipas.Id,
                     ProductAdvertisingSpaceId = ipas.ProductAdvertisingSpaceId,
@@ -316,14 +316,15 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
             return;
         }
 
-        // Reutilizar lógica del ProductionController
-        var spaceTypeResult = ValidateAndDetermineSpaceType(productEdition.InventoryProductAdvertisingSpaces);
+        // CORRECCIÓN: Usar el método correcto (plural)
+        var spaceTypeResult = ValidateAndDetermineSpaceTypes(productEdition.InventoryProductAdvertisingSpaces);
         if (!spaceTypeResult.IsValid)
         {
             throw new InvalidOperationException(spaceTypeResult.ErrorMessage);
         }
 
-        var spaces = ClassifyAllSpaces(productEdition.InventoryProductAdvertisingSpaces, spaceTypeResult.SpaceType);
+        // CORRECCIÓN: Pasar List<string> en lugar de string
+        var spaces = ClassifyAllSpaces(productEdition.InventoryProductAdvertisingSpaces, spaceTypeResult.SpaceTypes);
         var productionItemDtos = GenerateProductionTemplate(productEditionId, productEdition.PageCount.Value, spaces);
 
         // Convertir a entidades y persistir
@@ -348,7 +349,7 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
 
     #region Lógica reutilizada del ProductionController
 
-    private (bool IsValid, string ErrorMessage, string SpaceType) ValidateAndDetermineSpaceType(List<InventorySpaceProjection> spaces)
+    private (bool IsValid, string ErrorMessage, List<string> SpaceTypes) ValidateAndDetermineSpaceTypes(List<InventorySpaceProjection> spaces)
     {
         var hasPrint = spaces.Any(x => x.ProductAdvertisingSpaceName.ToLower().EndsWith("print") && x.Quantity.HasValue && x.Quantity != 0);
         var hasDigital = spaces.Any(x => x.ProductAdvertisingSpaceName.ToLower().EndsWith("digital") && x.Quantity.HasValue && x.Quantity != 0);
@@ -356,32 +357,32 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
                                          !x.ProductAdvertisingSpaceName.ToLower().EndsWith("print") &&
                                          x.Quantity.HasValue && x.Quantity != 0);
 
-        var typesCount = (hasPrint ? 1 : 0) + (hasDigital ? 1 : 0) + (hasGeneric ? 1 : 0);
+        var activeTypes = new List<string>();
 
-        if (typesCount > 1)
-            return (false, "Solo puede haber espacios de un solo tipo: digital, print o sin tipo", null);
+        if (hasPrint) activeTypes.Add("print");
+        if (hasDigital) activeTypes.Add("digital");
+        if (hasGeneric) activeTypes.Add("generic");
 
-        if (typesCount == 0)
+        if (activeTypes.Count == 0)
             return (false, "No se encontraron espacios publicitarios con cantidad válida", null);
 
-        string spaceType = hasPrint ? "print" : hasDigital ? "digital" : "generic";
-        return (true, null, spaceType);
+        return (true, null, activeTypes);
     }
 
-    private ClassifiedSpaces ClassifyAllSpaces(List<InventorySpaceProjection> inventorySpaces, string spaceType)
+    private ClassifiedSpaces ClassifyAllSpaces(List<InventorySpaceProjection> inventorySpaces, List<string> spaceTypes)
     {
         return new ClassifiedSpaces
         {
-            CoverEye = AdvertisingSpaceClassifier.GetCoverEye(inventorySpaces, spaceType),
-            CoverFooter = AdvertisingSpaceClassifier.GetCoverFooter(inventorySpaces, spaceType),
-            InsideCover = AdvertisingSpaceClassifier.GetInsideCover(inventorySpaces, spaceType),
-            Page = AdvertisingSpaceClassifier.GetPage(inventorySpaces, spaceType),
-            InsideBackCover = AdvertisingSpaceClassifier.GetInsideBackCover(inventorySpaces, spaceType),
-            BackCover = AdvertisingSpaceClassifier.GetBackCover(inventorySpaces, spaceType),
-            HalfPage = AdvertisingSpaceClassifier.GetHalfPage(inventorySpaces, spaceType),
-            CuarterPage = AdvertisingSpaceClassifier.GetCuarterPage(inventorySpaces, spaceType),
-            FooterPage = AdvertisingSpaceClassifier.GetFooterPage(inventorySpaces, spaceType),
-            OtherSpaces = AdvertisingSpaceClassifier.GetOtherSpaces(inventorySpaces, spaceType).ToList()
+            CoverEye = AdvertisingSpaceClassifier.GetCoverEye(inventorySpaces, spaceTypes),
+            CoverFooter = AdvertisingSpaceClassifier.GetCoverFooter(inventorySpaces, spaceTypes),
+            InsideCover = AdvertisingSpaceClassifier.GetInsideCover(inventorySpaces, spaceTypes),
+            Page = AdvertisingSpaceClassifier.GetPage(inventorySpaces, spaceTypes),
+            InsideBackCover = AdvertisingSpaceClassifier.GetInsideBackCover(inventorySpaces, spaceTypes),
+            BackCover = AdvertisingSpaceClassifier.GetBackCover(inventorySpaces, spaceTypes),
+            HalfPage = AdvertisingSpaceClassifier.GetHalfPage(inventorySpaces, spaceTypes),
+            CuarterPage = AdvertisingSpaceClassifier.GetCuarterPage(inventorySpaces, spaceTypes),
+            FooterPage = AdvertisingSpaceClassifier.GetFooterPage(inventorySpaces, spaceTypes),
+            OtherSpaces = AdvertisingSpaceClassifier.GetOtherSpaces(inventorySpaces, spaceTypes).ToList()
         };
     }
 
@@ -392,10 +393,18 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
         // Página 1 (Tapa)
         productionItems.AddRange(GenerateCoverPage(productEditionId, spaces));
 
-        // Páginas internas (2 hasta penúltima)
-        for (int pageNumber = 2; pageNumber < pageCount; pageNumber++)
+        // Página 2 (InsideCover si existe)
+        var hasInsideCover = spaces.InsideCover.Any();
+        if (hasInsideCover)
         {
-            productionItems.AddRange(GenerateInnerPage(productEditionId, pageNumber, pageCount, spaces));
+            productionItems.AddRange(GenerateInsideCoverPage(productEditionId, spaces));
+        }
+
+        // Páginas internas - comienzan en página 2 si NO hay InsideCover, o página 3 si SÍ hay InsideCover
+        int startPage = hasInsideCover ? 3 : 2;
+        for (int pageNumber = startPage; pageNumber < pageCount; pageNumber++)
+        {
+            productionItems.AddRange(GenerateInnerPage(productEditionId, pageNumber, spaces));
         }
 
         // Última página (Contratapa)
@@ -409,49 +418,91 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
         var items = new List<ProductionItemDto>();
         var slot = 0;
 
-        AddSpaceItems(items, spaces.CoverEye, productEditionId, 1, ref slot);
-        AddSpaceItems(items, spaces.CoverFooter, productEditionId, 1, ref slot);
+        // Solo Ojos de tapa y Pie de tapa en página 1
+        foreach (var coverEye in spaces.CoverEye)
+        {
+            AddSpaceItems(items, coverEye, productEditionId, 1, ref slot);
+        }
+
+        foreach (var coverFooter in spaces.CoverFooter)
+        {
+            AddSpaceItems(items, coverFooter, productEditionId, 1, ref slot);
+        }
+
+        // InsideCover NO va aquí, va en página 2
 
         return items;
     }
 
-    private List<ProductionItemDto> GenerateInnerPage(long productEditionId, int pageNumber, int pageCount, ClassifiedSpaces spaces)
+    private List<ProductionItemDto> GenerateInsideCoverPage(long productEditionId, ClassifiedSpaces spaces)
     {
         var items = new List<ProductionItemDto>();
         var slot = 0;
 
-        // Página 2 - Verificar retiro de tapa
-        if (pageNumber == 2 && spaces.InsideCover != null)
+        // InsideCover va en página 2
+        foreach (var insideCover in spaces.InsideCover)
         {
-            AddSpaceItems(items, spaces.InsideCover, productEditionId, pageNumber, ref slot);
-            return items;
+            AddSpaceItems(items, insideCover, productEditionId, 2, ref slot);
         }
 
-        // Penúltima página - Verificar retiro de contratapa
-        if (pageNumber == pageCount - 1 && spaces.InsideBackCover != null)
-        {
-            AddSpaceItems(items, spaces.InsideBackCover, productEditionId, pageNumber, ref slot);
-            return items;
-        }
+        return items;
+    }
 
-        // Lógica normal par/impar
+    private List<ProductionItemDto> GenerateInnerPage(long productEditionId, int pageNumber, ClassifiedSpaces spaces)
+    {
+        var items = new List<ProductionItemDto>();
+        var slot = 0;
+
+        // Páginas PARES: Solo espacios tipo Page
         if (pageNumber % 2 == 0)
         {
-            AddSpaceItems(items, spaces.Page, productEditionId, pageNumber, ref slot);
+            // Buscar el siguiente Page disponible
+            var availablePage = GetNextAvailableSpace(spaces.Page);
+            if (availablePage != null)
+            {
+                AddSpaceItems(items, availablePage, productEditionId, pageNumber, ref slot);
+                // Marcar como usado reduciendo quantity
+                availablePage.Quantity = availablePage.Quantity - 1;
+            }
         }
         else
         {
-            AddSpaceItems(items, spaces.HalfPage, productEditionId, pageNumber, ref slot);
-            AddSpaceItems(items, spaces.CuarterPage, productEditionId, pageNumber, ref slot);
-            AddSpaceItems(items, spaces.FooterPage, productEditionId, pageNumber, ref slot);
-
-            foreach (var otherSpace in spaces.OtherSpaces)
+            // Páginas IMPARES: Un espacio por página, rotando entre tipos
+            var availableSpace = GetNextAvailableSpaceForOddPage(spaces);
+            if (availableSpace != null)
             {
-                AddSpaceItems(items, otherSpace, productEditionId, pageNumber, ref slot);
+                AddSpaceItems(items, availableSpace, productEditionId, pageNumber, ref slot);
+                // Marcar como usado reduciendo quantity
+                availableSpace.Quantity = availableSpace.Quantity - 1;
             }
         }
 
         return items;
+    }
+
+    // Método helper para obtener el siguiente Page disponible
+    private InventorySpaceProjection GetNextAvailableSpace(List<InventorySpaceProjection> spaces)
+    {
+        return spaces.FirstOrDefault(space => space.Quantity > 0);
+    }
+
+    // Método helper para obtener el siguiente espacio disponible en páginas impares (rotando)
+    private InventorySpaceProjection GetNextAvailableSpaceForOddPage(ClassifiedSpaces spaces)
+    {
+        // Orden de prioridad: HalfPage -> CuarterPage -> FooterPage -> OtherSpaces
+        var availableSpace = GetNextAvailableSpace(spaces.HalfPage);
+        if (availableSpace != null) return availableSpace;
+
+        availableSpace = GetNextAvailableSpace(spaces.CuarterPage);
+        if (availableSpace != null) return availableSpace;
+
+        availableSpace = GetNextAvailableSpace(spaces.FooterPage);
+        if (availableSpace != null) return availableSpace;
+
+        availableSpace = GetNextAvailableSpace(spaces.OtherSpaces);
+        if (availableSpace != null) return availableSpace;
+
+        return null;
     }
 
     private List<ProductionItemDto> GenerateBackCoverPage(long productEditionId, int pageCount, ClassifiedSpaces spaces)
@@ -459,30 +510,37 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
         var items = new List<ProductionItemDto>();
         var slot = 0;
 
-        AddSpaceItems(items, spaces.BackCover, productEditionId, pageCount, ref slot);
+        foreach (var insideBackCover in spaces.InsideBackCover)
+        {
+            AddSpaceItems(items, insideBackCover, productEditionId, pageCount, ref slot);
+        }
+
+        foreach (var backCover in spaces.BackCover)
+        {
+            AddSpaceItems(items, backCover, productEditionId, pageCount, ref slot);
+        }
 
         return items;
     }
 
+    // El método AddSpaceItems ahora agrega solo 1 item por llamada
     private void AddSpaceItems(List<ProductionItemDto> items, InventorySpaceProjection space, long productEditionId, int pageNumber, ref int slot)
     {
         if (space?.Quantity == null || space.Quantity <= 0) return;
 
-        for (int i = 0; i < space.Quantity; i++)
+        // Solo agregar 1 item por página
+        slot++;
+        items.Add(new ProductionItemDto
         {
-            slot++;
-            items.Add(new ProductionItemDto
-            {
-                ProductEditionId = productEditionId,
-                PageNumber = pageNumber,
-                Slot = slot,
-                InventoryProductAdvertisingSpaceId = space.Id,
-                ProductAdvertisingSpaceName = space.ProductAdvertisingSpaceName,
-                IsEditorial = false,
-                IsCA = false,
-                Observations = ""
-            });
-        }
+            ProductEditionId = productEditionId,
+            PageNumber = pageNumber,
+            Slot = slot,
+            InventoryProductAdvertisingSpaceId = space.Id,
+            ProductAdvertisingSpaceName = space.ProductAdvertisingSpaceName,
+            IsEditorial = false,
+            IsCA = false,
+            Observations = ""
+        });
     }
 
     private async Task AssignExistingPublishingOrders(long productEditionId, int totalPages)
@@ -514,7 +572,6 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
             if (availableItem != null)
             {
                 availableItem.PublishingOrderId = order.Id;
-                availableItem.Observations = order.Observations ?? "";
             }
         }
 
@@ -532,16 +589,16 @@ public class ProductEditionController : RestController<ProductEdition, ProductEd
 
     private class ClassifiedSpaces
     {
-        public InventorySpaceProjection CoverEye { get; set; }
-        public InventorySpaceProjection CoverFooter { get; set; }
-        public InventorySpaceProjection InsideCover { get; set; }
-        public InventorySpaceProjection Page { get; set; }
-        public InventorySpaceProjection InsideBackCover { get; set; }
-        public InventorySpaceProjection BackCover { get; set; }
-        public InventorySpaceProjection HalfPage { get; set; }
-        public InventorySpaceProjection CuarterPage { get; set; }
-        public InventorySpaceProjection FooterPage { get; set; }
-        public List<InventorySpaceProjection> OtherSpaces { get; set; }
+        public List<InventorySpaceProjection> CoverEye { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> CoverFooter { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> InsideCover { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> Page { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> InsideBackCover { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> BackCover { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> HalfPage { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> CuarterPage { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> FooterPage { get; set; } = new List<InventorySpaceProjection>();
+        public List<InventorySpaceProjection> OtherSpaces { get; set; } = new List<InventorySpaceProjection>();
     }
 
     #endregion
