@@ -79,13 +79,16 @@ public class ProductionController : ControllerBase
                         slotNumber = ps.SlotNumber,
                         inventoryAdvertisingSpaceId = ps.InventoryAdvertisingSpaceId,
                         productAdvertisingSpaceName = ps.InventoryAdvertisingSpace.ProductAdvertisingSpace != null ? ps.InventoryAdvertisingSpace.ProductAdvertisingSpace.Name : string.Empty,
-                        publishingOrderId = ps.PublishingOrderId,
-                        contractId = ps.PublishingOrder != null ? ps.PublishingOrder.ContractId : null,
-                        contractName = ps.PublishingOrder != null && ps.PublishingOrder.Contract != null ? ps.PublishingOrder.Contract.Name : "LATENTE",
-                        clientName = ps.PublishingOrder != null && ps.PublishingOrder.Contract != null && ps.PublishingOrder.Contract.Client != null ?
+                        order = ps.PublishingOrderId != null ? new ProductionPublishiingOrderDto
+                        {
+                            id = ps.PublishingOrder.Id,
+                            contractId = ps.PublishingOrder.ContractId,
+                            contractName = ps.PublishingOrder.Contract != null ? ps.PublishingOrder.Contract.Name : "LATENTE",
+                            clientName = ps.PublishingOrder.Contract != null && ps.PublishingOrder.Contract.Client != null ?
                                     (ps.PublishingOrder.Contract.Client.LegalName ?? ps.PublishingOrder.Contract.Client.BrandName ?? "") : "",
-                        sellerName = ps.PublishingOrder != null && ps.PublishingOrder.Contract != null && ps.PublishingOrder.Contract.Seller != null ?
+                            sellerName = ps.PublishingOrder.Contract != null && ps.PublishingOrder.Contract.Seller != null ?
                                     ps.PublishingOrder.Contract.Seller.FullName : "",
+                        } : null,
                         observations = ps.Observations != null ? ps.Observations : "",
                         isEditorial = ps.IsEditorial,
                         isCA = ps.IsCA
