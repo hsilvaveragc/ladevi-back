@@ -5,7 +5,7 @@ namespace LadeviVentasApi.Projections
     {
         public long Id { get; set; }
         public int? PageCount { get; set; }
-        public List<InventorySpaceProjection> InventoryProductAdvertisingSpaces { get; set; }
+        public List<InventorySpaceProjection> InventoryAdvertisingSpaces { get; set; }
         public bool? Deleted { get; set; }
     }
 

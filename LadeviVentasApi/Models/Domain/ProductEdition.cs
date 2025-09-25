@@ -28,9 +28,9 @@ namespace LadeviVentasApi.Models.Domain
 
         public IList<PublishingOrder>? PublishingOrders { get; set; }
 
-        public IList<InventoryProductAdvertisingSpace>? InventoryProductAdvertisingSpaces { get; set; }
+        public IList<InventoryAdvertisingSpace>? InventoryAdvertisingSpaces { get; set; }
 
-        public IList<ProductionItem>? ProductionItems { get; set; }
+        public virtual ICollection<ProductionTemplate> ProductionTemplates { get; set; } = new List<ProductionTemplate>();
 
         protected override IList<ValidationResult> PerformValidate(ValidationContext validationContext, ApplicationDbContext context, Lazy<ApplicationUser> applicationUser)
         {

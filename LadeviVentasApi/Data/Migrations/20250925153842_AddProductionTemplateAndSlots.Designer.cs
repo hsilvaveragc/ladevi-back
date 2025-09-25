@@ -3,6 +3,7 @@ using System;
 using LadeviVentasApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LadeviVentasApi.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250925153842_AddProductionTemplateAndSlots")]
+    partial class AddProductionTemplateAndSlots
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1206,6 +1209,7 @@ namespace LadeviVentasApi.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<long?>("InventoryAdvertisingSpaceId")
+                        .IsRequired()
                         .HasColumnType("bigint");
 
                     b.Property<bool>("IsCA")
@@ -1221,6 +1225,7 @@ namespace LadeviVentasApi.Data.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<long?>("PublishingOrderId")
+                        .IsRequired()
                         .HasColumnType("bigint");
 
                     b.Property<int>("SlotNumber")
@@ -2129,7 +2134,9 @@ namespace LadeviVentasApi.Data.Migrations
                 {
                     b.HasOne("LadeviVentasApi.Models.Domain.InventoryAdvertisingSpace", "InventoryAdvertisingSpace")
                         .WithMany()
-                        .HasForeignKey("InventoryAdvertisingSpaceId");
+                        .HasForeignKey("InventoryAdvertisingSpaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("LadeviVentasApi.Models.Domain.ProductionTemplate", "ProductionTemplate")
                         .WithMany("ProductionSlots")
@@ -2139,7 +2146,9 @@ namespace LadeviVentasApi.Data.Migrations
 
                     b.HasOne("LadeviVentasApi.Models.Domain.PublishingOrder", "PublishingOrder")
                         .WithMany()
-                        .HasForeignKey("PublishingOrderId");
+                        .HasForeignKey("PublishingOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("InventoryAdvertisingSpace");
 

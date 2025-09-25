@@ -12,5 +12,5 @@ public class ProductEditionWritingDto : BaseEntity
     public bool Closed;
     public DateTime End;
     public int? PageCount;
-    public List<InventoryProductAdvertisingSpaceDto> InventoryProductAdvertisingSpaces;
+    public List<InventoryAdvertisingSpaceDto> InventoryAdvertisingSpaces;
 }

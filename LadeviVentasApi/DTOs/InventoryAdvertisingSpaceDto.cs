@@ -3,8 +3,8 @@ namespace LadeviVentasApi.DTOs;
 using AutoMapper;
 using LadeviVentasApi.Models.Domain;
 
-[AutoMap(typeof(InventoryProductAdvertisingSpace), ReverseMap = true)]
-public class InventoryProductAdvertisingSpaceDto : BaseDto
+[AutoMap(typeof(InventoryAdvertisingSpace), ReverseMap = true)]
+public class InventoryAdvertisingSpaceDto : BaseDto
 {
     public long ProductEditionId;
     public long ProductAdvertisingSpaceId;

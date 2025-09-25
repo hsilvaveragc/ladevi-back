@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace LadeviVentasApi.Models.Domain
 {
-    public class InventoryProductAdvertisingSpace : BaseEntity
+    public class InventoryAdvertisingSpace : BaseEntity
     {
         [Required]
         public long ProductEditionId { get; set; }
