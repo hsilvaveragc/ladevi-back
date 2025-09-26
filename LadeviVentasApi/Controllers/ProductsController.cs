@@ -266,15 +266,7 @@ public class ProductsController : RestController<Product, ProductWritingDto>
             {
                 ld.AdvertisingSpaceLocationTypeId,
                 ld.Discount
-            }),
-            productAdvertisingSpaces = p.ProductAdvertisingSpaces
-            .Where(pas => (!pas.Deleted.HasValue || !pas.Deleted.Value) && pas.Show)
-            .OrderBy(pas => pas.Id)
-            .Select(pas => new
-            {
-                pas.Id,
-                pas.Name,
-            }),
+            })
         })
         .OrderBy(p => p.Name)
         .ToListAsync();

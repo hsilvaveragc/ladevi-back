@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LadeviVentasApi.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250918131736_AddProductionItem")]
-    partial class AddProductionItem
+    [Migration("20250923133317_UpdateCountriesXubioCodeForMissingCountries")]
+    partial class UpdateCountriesXubioCodeForMissingCountries
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -751,42 +751,6 @@ namespace LadeviVentasApi.Data.Migrations
                     b.ToTable("EuroParities");
                 });
 
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.InventoryProductAdvertisingSpace", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool?>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("DeletedDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DeletedUser")
-                        .HasColumnType("text");
-
-                    b.Property<long>("ProductAdvertisingSpaceId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("ProductEditionId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int?>("Quantity")
-                        .IsRequired()
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductAdvertisingSpaceId");
-
-                    b.HasIndex("ProductEditionId");
-
-                    b.ToTable("InventoryProductAdvertisingSpaces");
-                });
-
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.PaymentMethod", b =>
                 {
                     b.Property<long>("Id")
@@ -1080,9 +1044,6 @@ namespace LadeviVentasApi.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<int?>("PageCount")
-                        .HasColumnType("integer");
-
                     b.Property<long>("ProductId")
                         .HasColumnType("bigint");
 
@@ -1189,57 +1150,6 @@ namespace LadeviVentasApi.Data.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductVolumeDiscount");
-                });
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductionItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool?>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("DeletedDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DeletedUser")
-                        .HasColumnType("text");
-
-                    b.Property<long>("InventoryProductAdvertisingSpaceId")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("IsCA")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsEditorial")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Observations")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("PageNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("ProductEditionId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("PublishingOrderId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("Slot")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InventoryProductAdvertisingSpaceId");
-
-                    b.HasIndex("PublishingOrderId");
-
-                    b.ToTable("ProductionItems");
                 });
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.PublishingOrder", b =>
@@ -2004,25 +1914,6 @@ namespace LadeviVentasApi.Data.Migrations
                     b.Navigation("State");
                 });
 
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.InventoryProductAdvertisingSpace", b =>
-                {
-                    b.HasOne("LadeviVentasApi.Models.Domain.ProductAdvertisingSpace", "ProductAdvertisingSpace")
-                        .WithMany()
-                        .HasForeignKey("ProductAdvertisingSpaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LadeviVentasApi.Models.Domain.ProductEdition", "ProductEdition")
-                        .WithMany("InventoryProductAdvertisingSpaces")
-                        .HasForeignKey("ProductEditionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProductAdvertisingSpace");
-
-                    b.Navigation("ProductEdition");
-                });
-
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.Product", b =>
                 {
                     b.HasOne("LadeviVentasApi.Models.Domain.Country", "Country")
@@ -2045,7 +1936,7 @@ namespace LadeviVentasApi.Data.Migrations
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductAdvertisingSpace", b =>
                 {
                     b.HasOne("LadeviVentasApi.Models.Domain.Product", "Product")
-                        .WithMany("ProductAdvertisingSpaces")
+                        .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2098,23 +1989,6 @@ namespace LadeviVentasApi.Data.Migrations
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductionItem", b =>
-                {
-                    b.HasOne("LadeviVentasApi.Models.Domain.InventoryProductAdvertisingSpace", "InventoryProductAdvertisingSpace")
-                        .WithMany()
-                        .HasForeignKey("InventoryProductAdvertisingSpaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LadeviVentasApi.Models.Domain.PublishingOrder", "PublishingOrder")
-                        .WithMany()
-                        .HasForeignKey("PublishingOrderId");
-
-                    b.Navigation("InventoryProductAdvertisingSpace");
-
-                    b.Navigation("PublishingOrder");
                 });
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.PublishingOrder", b =>
@@ -2290,8 +2164,6 @@ namespace LadeviVentasApi.Data.Migrations
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.Product", b =>
                 {
-                    b.Navigation("ProductAdvertisingSpaces");
-
                     b.Navigation("ProductLocationDiscounts");
 
                     b.Navigation("ProductVolumeDiscounts");
@@ -2306,8 +2178,6 @@ namespace LadeviVentasApi.Data.Migrations
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductEdition", b =>
                 {
-                    b.Navigation("InventoryProductAdvertisingSpaces");
-
                     b.Navigation("PublishingOrders");
                 });
 #pragma warning restore 612, 618

@@ -77,7 +77,7 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
             bool isSeller = CurrentAppUser.Value.ApplicationRole.IsSeller();
             long userId = CurrentAppUser.Value.Id;
 
-            var posQuery = Context.PublishingOrders
+            var posQuery = Context.PublishingOrders.AsNoTracking()
                                 .Include(x => x.Client)
                                 .Include(x => x.Contract)
                                     .ThenInclude(c => c.Product)
@@ -89,7 +89,6 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
                                 .Include(x => x.AdvertisingSpaceLocationType)
                                 .Include(x => x.SoldSpace)
                                 .Include(x => x.Seller)
-                                .AsNoTracking()
                                 .Where(x => (!x.Deleted.HasValue || !x.Deleted.Value) &&
                                         x.Client.XubioId.HasValue &&
                                         x.ProductEditionId == editionId && // Filtro principal por edición
@@ -97,6 +96,7 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
                                         x.ContractId.HasValue &&
                                         x.Contract.BillingConditionId == 2 &&
                                         string.IsNullOrWhiteSpace(x.XubioDocumentNumber) &&
+                                        string.IsNullOrWhiteSpace(x.InvoiceNumber) &&
                                         x.Client.IsComtur == isComturClient);
             if (isSeller)
             {
@@ -200,7 +200,7 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
         long userId = CurrentAppUser.Value.Id;
         List<long> clientsIds = Context.Clients.Where(c => !isSeller || c.ApplicationUserSellerId == userId).Select(c => c.Id).ToList();
 
-        var allOP = Context.PublishingOrders
+        var allOP = Context.PublishingOrders.AsNoTracking() //base.GetQueryableWithIncludes()
                     .Include(x => x.Client)
                     .Include(x => x.Contract)
                         .ThenInclude(c => c.BillingCondition)
@@ -210,8 +210,7 @@ public class PublishingOrderController : RestController<PublishingOrder, Publish
                         .ThenInclude(c => c.SoldSpaces)
                     .Include(x => x.ProductAdvertisingSpace)
                     .Include(x => x.Seller)
-                    .Include(x => x.ProductEdition)
-                    .AsNoTracking();
+                    .Include(x => x.ProductEdition);
 
         if (isSeller)
         {

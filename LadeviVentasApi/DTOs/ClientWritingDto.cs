@@ -12,7 +12,8 @@ public class ClientWritingDto : BaseDto
     public string? Contact, AlternativeEmail;
     public bool ElectronicBillByMail, ElectronicBillByPaper, IsEnabled, IsAgency, IsComtur;
     public long CountryId, StateId, ApplicationUserDebtCollectorId, ApplicationUserSellerId;
-    public long Id, TaxTypeId, TaxCategoryId;
+    public long Id, TaxTypeId;
+    public long? TaxCategoryId;
     public string IdentificationValue;
     public double TaxPercentage;
     public long? DistrictId, CityId, XubioId;

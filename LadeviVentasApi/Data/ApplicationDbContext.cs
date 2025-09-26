@@ -44,9 +44,6 @@ namespace LadeviVentasApi.Data
         public DbSet<CurrencyParity> CurrencyParities { get; set; }
         public DbSet<EuroParity> EuroParities { get; set; }
         public DbSet<TaxCategory> TaxCategories { get; set; }
-        public DbSet<InventoryAdvertisingSpace> InventoryAdvertisingSpaces { get; set; }
-        public DbSet<ProductionTemplate> ProductionTemplates { get; set; }
-        public DbSet<ProductionSlot> ProductionSlots { get; set; }
 
         public void ContextSaveChanges()
         {

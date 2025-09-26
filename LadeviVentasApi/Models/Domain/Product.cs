@@ -21,7 +21,6 @@ namespace LadeviVentasApi.Models.Domain
         public double DiscountForOtherCountry { get; set; }
         public ICollection<ProductVolumeDiscount> ProductVolumeDiscounts { get; set; }
         public ICollection<ProductLocationDiscount> ProductLocationDiscounts { get; set; }
-        public ICollection<ProductAdvertisingSpace> ProductAdvertisingSpaces { get; set; }
         public double DiscountSpecialBySeller { get; set; }
         public double DiscountByManager { get; set; }
         public double MaxAplicableDiscount { get; set; }

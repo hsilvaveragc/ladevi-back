@@ -86,6 +86,7 @@ public class RestController<T, TWrite> : ControllerBase
     protected T GetByIdNoTracking(long id)
     {
         var x = Context.Set<T>().AsNoTracking().SingleOrDefault(o => o.Id == id);
+        // var x = GetQueryableWithIncludes().AsNoTracking().SingleOrDefaultAsync(o => o.Id == id).Result;
         return x;
     }
 
@@ -99,7 +100,7 @@ public class RestController<T, TWrite> : ControllerBase
 
     protected async Task<T> GetByIdCleaned(long id)
     {
-        var x = await GetQueryableWithIncludes().AsNoTracking().SingleOrDefaultAsync(o => o.Id == id);
+        var x = await GetQueryableWithIncludes().SingleOrDefaultAsync(o => o.Id == id);
         if (x != null) CleanFields(x);
         return x;
     }
@@ -184,26 +185,12 @@ public class RestController<T, TWrite> : ControllerBase
 
     private void Upsert(T entity)
     {
+        //Context.ChangeTracker.TrackGraph(entity, e =>
+        //{
+        //    e.Entry.State = EntityState.Detached;
+        //});
         Context.ChangeTracker.TrackGraph(entity, e =>
         {
-            // Buscar si ya existe una entidad tracked con la misma key
-            var keyValues = e.Entry.Metadata.FindPrimaryKey().Properties
-                .Select(p => e.Entry.Property(p.Name).CurrentValue).ToArray();
-
-            var existingEntry = Context.ChangeTracker.Entries()
-                .FirstOrDefault(entry =>
-                    entry.Entity.GetType() == e.Entry.Entity.GetType() &&
-                    entry.Metadata.FindPrimaryKey().Properties
-                        .Select(p => entry.Property(p.Name).CurrentValue)
-                        .SequenceEqual(keyValues));
-
-            if (existingEntry != null)
-            {
-                // Si ya está trackeada, detach la anterior y usar la nueva
-                existingEntry.State = EntityState.Detached;
-            }
-
-            // Aplicar la lógica normal
             e.Entry.State = e.Entry.IsKeySet
                 ? e.Entry.Entity is BaseEntity o && (o.ShouldDelete ?? false)
                     ? EntityState.Deleted

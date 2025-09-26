@@ -42,7 +42,7 @@ public class ContractController : RestController<Contract, ContractWritingDto>
     [HttpGet("GetContractByClient/{clientId}")]
     public async Task<ActionResult> GetPendingContracts(long clientId)
     {
-        var contracts = Context.Contracts
+        var contracts = Context.Contracts.AsNoTracking()
             .Include(c => c.Client)
             .Include(c => c.Product)
             .Include(c => c.Seller)
@@ -51,7 +51,6 @@ public class ContractController : RestController<Contract, ContractWritingDto>
                 .ThenInclude(sp => sp.ProductAdvertisingSpace)
             .Include(c => c.SoldSpaces)
                 .ThenInclude(sp => sp.AdvertisingSpaceLocationType)
-            .AsNoTracking()
             .Where(c => (!c.Deleted.HasValue || !c.Deleted.Value) &&
                 c.Total != 0 &&
                 c.ClientId == clientId &&
@@ -617,7 +616,7 @@ public class ContractController : RestController<Contract, ContractWritingDto>
         long userId = CurrentAppUser.Value.Id;
         List<long> clientsIds = Context.Clients.Where(c => !isSeller || c.ApplicationUserSellerId == userId).Select(c => c.Id).ToList();
 
-        var allContracts = Context.Contracts
+        var allContracts = Context.Contracts.AsNoTracking()
             .Include(c => c.Product)
             .Include(c => c.Client)
                 .ThenInclude(c => c.ApplicationUserSeller)
@@ -630,8 +629,7 @@ public class ContractController : RestController<Contract, ContractWritingDto>
             .Include(c => c.PublishingOrders)
                 .ThenInclude(op => op.ProductAdvertisingSpace)
             .Include(c => c.PublishingOrders)
-                .ThenInclude(op => op.ProductEdition)
-            .AsNoTracking();
+                .ThenInclude(op => op.ProductEdition);
 
         if (isSeller)
         {

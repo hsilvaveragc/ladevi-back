@@ -61,7 +61,7 @@ public class XubioService
         return await apiClient.DeleteClientAsync(xubioId);
     }
 
-    public async Task<List<ClientDtoResponse>> GetClientsAsync(bool isComtur, string identificationValue = "")
+    public async Task<List<ClientDtoResponse>> GetClientsAsync(bool isComtur, string identificationXubioValue = "")
     {
         var apiClient = GetApiClient(isComtur);
         var queryParams = new Dictionary<string, string>
@@ -69,9 +69,9 @@ public class XubioService
             { "activo", "1" }
         };
 
-        if (!string.IsNullOrWhiteSpace(identificationValue))
+        if (!string.IsNullOrWhiteSpace(identificationXubioValue))
         {
-            queryParams.Add("numeroIdentificacion", identificationValue);
+            queryParams.Add("numeroIdentificacion", identificationXubioValue);
         }
 
         return await apiClient.GetClientsAsync(queryParams);
@@ -100,9 +100,8 @@ public class XubioService
         var createClientDtoRequest = new ClientDtoRequest
         {
             ClientId = client.XubioId ?? 0,
-            UsrCode = client.XubioId == null ? "" : client.XubioId.ToString(),
+            UsrCode = !client.XubioId.HasValue ? string.Empty : client.XubioId.Value.ToString(),
             Nombre = client.LegalName,
-            Cuit = client.IdentificationValue,
             CategoriaFiscal = new CategoriaFiscalRequest { Codigo = client.TaxCategory.Code },
             Email = client.MainEmail,
             Telefono = client.TelephoneCountryCode + client.TelephoneAreaCode + client.TelephoneNumber,
@@ -110,8 +109,9 @@ public class XubioService
             Pais = new PaisRequest { Codigo = client.Country.XubioCode },
         };
 
-        if (client.CountryId == 4) //Argentina countryId
+        if (client.ShouldSyncToXubioArgentina())
         {
+            createClientDtoRequest.Cuit = client.IdentificationValue;
             createClientDtoRequest.IdentificacionTributaria = new IdentificacionTributariaRequest { Codigo = "CUIT" };
             if (client.State != null)
             {
@@ -122,8 +122,9 @@ public class XubioService
                 createClientDtoRequest.Localidad = new LocalidadRequest { Codigo = client.City.XubioCode };
             }
         }
-        else
+        else if (client.ShouldSyncToXubioComtur())
         {
+            createClientDtoRequest.Cuit = client.Id.ToString().PadLeft(8, '0');
             createClientDtoRequest.IdentificacionTributaria = new IdentificacionTributariaRequest { Codigo = "SIN_IDENTIFICARVENTA_GLOBAL_DIARIA" };
         }
 

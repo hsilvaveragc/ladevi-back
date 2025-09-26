@@ -360,7 +360,6 @@ public class ReportController : ControllerBase
         var grid1 = await Context.PublishingOrders
             .Include(po => po.ProductEdition)
                 .ThenInclude(pe => pe.Product)
-            .AsNoTracking()
             .Where(op =>
                 (!op.Deleted.HasValue || !op.Deleted.Value) &&
                 (param.FromDate.HasValue && op.ProductEdition.End.Date >= param.FromDate.Value.Date || !param.FromDate.HasValue) &&
@@ -408,11 +407,11 @@ public class ReportController : ControllerBase
                         (d.Contract.BillingCondition.Name == BillingCondition.AgainstPublication ? d.InvoiceNumber : d.Contract.InvoiceNumber),
                 Moneda = d.Contract == null ? "" : d.Contract.UseEuro ? "EUR" : d.Contract.Currency.Name
             })
+            .AsNoTracking()
             .ToListAsync();
 
         // Segunda consulta optimizada con proyección
         var query2Data = await Context.PublishingOrders
-            .AsNoTracking()
             .Where(op =>
                 (!op.Deleted.HasValue || !op.Deleted.Value) &&
                 !op.Latent &&
@@ -460,6 +459,7 @@ public class ReportController : ControllerBase
                 ContractPaidOut = op.Contract != null ? op.Contract.PaidOut : null,
                 OrderPaidOut = op.PaidOut
             })
+            .AsNoTracking()
             .ToListAsync();
 
         // Agrupamos por vendedor con datos proyectados

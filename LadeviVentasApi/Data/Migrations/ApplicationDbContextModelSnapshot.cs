@@ -748,42 +748,6 @@ namespace LadeviVentasApi.Data.Migrations
                     b.ToTable("EuroParities");
                 });
 
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.InventoryAdvertisingSpace", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool?>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("DeletedDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DeletedUser")
-                        .HasColumnType("text");
-
-                    b.Property<long>("ProductAdvertisingSpaceId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("ProductEditionId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int?>("Quantity")
-                        .IsRequired()
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductAdvertisingSpaceId");
-
-                    b.HasIndex("ProductEditionId");
-
-                    b.ToTable("InventoryAdvertisingSpaces");
-                });
-
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.PaymentMethod", b =>
                 {
                     b.Property<long>("Id")
@@ -1077,9 +1041,6 @@ namespace LadeviVentasApi.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<int?>("PageCount")
-                        .HasColumnType("integer");
-
                     b.Property<long>("ProductId")
                         .HasColumnType("bigint");
 
@@ -1186,85 +1147,6 @@ namespace LadeviVentasApi.Data.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductVolumeDiscount");
-                });
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductionSlot", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool?>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("DeletedDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DeletedUser")
-                        .HasColumnType("text");
-
-                    b.Property<long?>("InventoryAdvertisingSpaceId")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("IsCA")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsEditorial")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Observations")
-                        .HasColumnType("text");
-
-                    b.Property<long>("ProductionTemplateId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("PublishingOrderId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("SlotNumber")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InventoryAdvertisingSpaceId");
-
-                    b.HasIndex("ProductionTemplateId");
-
-                    b.HasIndex("PublishingOrderId");
-
-                    b.ToTable("ProductionSlots");
-                });
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductionTemplate", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool?>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("DeletedDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DeletedUser")
-                        .HasColumnType("text");
-
-                    b.Property<int>("PageNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("ProductEditionId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductEditionId");
-
-                    b.ToTable("ProductionTemplates");
                 });
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.PublishingOrder", b =>
@@ -2029,25 +1911,6 @@ namespace LadeviVentasApi.Data.Migrations
                     b.Navigation("State");
                 });
 
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.InventoryAdvertisingSpace", b =>
-                {
-                    b.HasOne("LadeviVentasApi.Models.Domain.ProductAdvertisingSpace", "ProductAdvertisingSpace")
-                        .WithMany()
-                        .HasForeignKey("ProductAdvertisingSpaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LadeviVentasApi.Models.Domain.ProductEdition", "ProductEdition")
-                        .WithMany("InventoryAdvertisingSpaces")
-                        .HasForeignKey("ProductEditionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProductAdvertisingSpace");
-
-                    b.Navigation("ProductEdition");
-                });
-
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.Product", b =>
                 {
                     b.HasOne("LadeviVentasApi.Models.Domain.Country", "Country")
@@ -2070,7 +1933,7 @@ namespace LadeviVentasApi.Data.Migrations
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductAdvertisingSpace", b =>
                 {
                     b.HasOne("LadeviVentasApi.Models.Domain.Product", "Product")
-                        .WithMany("ProductAdvertisingSpaces")
+                        .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2123,40 +1986,6 @@ namespace LadeviVentasApi.Data.Migrations
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductionSlot", b =>
-                {
-                    b.HasOne("LadeviVentasApi.Models.Domain.InventoryAdvertisingSpace", "InventoryAdvertisingSpace")
-                        .WithMany()
-                        .HasForeignKey("InventoryAdvertisingSpaceId");
-
-                    b.HasOne("LadeviVentasApi.Models.Domain.ProductionTemplate", "ProductionTemplate")
-                        .WithMany("ProductionSlots")
-                        .HasForeignKey("ProductionTemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("LadeviVentasApi.Models.Domain.PublishingOrder", "PublishingOrder")
-                        .WithMany()
-                        .HasForeignKey("PublishingOrderId");
-
-                    b.Navigation("InventoryAdvertisingSpace");
-
-                    b.Navigation("ProductionTemplate");
-
-                    b.Navigation("PublishingOrder");
-                });
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductionTemplate", b =>
-                {
-                    b.HasOne("LadeviVentasApi.Models.Domain.ProductEdition", "ProductEdition")
-                        .WithMany("ProductionTemplates")
-                        .HasForeignKey("ProductEditionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProductEdition");
                 });
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.PublishingOrder", b =>
@@ -2332,8 +2161,6 @@ namespace LadeviVentasApi.Data.Migrations
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.Product", b =>
                 {
-                    b.Navigation("ProductAdvertisingSpaces");
-
                     b.Navigation("ProductLocationDiscounts");
 
                     b.Navigation("ProductVolumeDiscounts");
@@ -2348,16 +2175,7 @@ namespace LadeviVentasApi.Data.Migrations
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductEdition", b =>
                 {
-                    b.Navigation("InventoryAdvertisingSpaces");
-
-                    b.Navigation("ProductionTemplates");
-
                     b.Navigation("PublishingOrders");
-                });
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductionTemplate", b =>
-                {
-                    b.Navigation("ProductionSlots");
                 });
 #pragma warning restore 612, 618
         }
