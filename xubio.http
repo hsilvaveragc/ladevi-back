@@ -1,9 +1,6 @@
 @base_url = https://xubio.com:443/API/1.1
-# @clientId = 610878458668984820993609961633570808727826981097832302948251272627992419493371458668610878497337325707
-# @secretId = 9Ltn8CP+0/Q-j1kCmlttMHdj72vmAaGunDoE10fOB/i6=k9qQInnwbtewQAeUFhxMECnhKl*NzzzU2jl=GPVV7Tl9ONF6qBp5xMCw-W1i9Ltn8CP+0/Q-j1kCmlttMHdj72
-
-@clientId = 64968109892398023422332550029692555540272157308187024975502141169607192375530098923649681517186341372
-@secretId = RgKl=5Lo5eLaKXweDcCM4qJs*eQhcwzOa91nXr5j0yFgiEjAIeq6niCw-YLf30/QZO4btGWm=B40agRo*m=wERpqI=CFcKfpVLDJcL_CPRgKl=5Lo5eLaKXweDcCM4qJs*
+@clientId = 610878458668984820993609961633570808727826981097832302948251272627992419493371458668610878497337325707
+@secretId = 9Ltn8CP+0/Q-j1kCmlttMHdj72vmAaGunDoE10fOB/i6=k9qQInnwbtewQAeUFhxMECnhKl*NzzzU2jl=GPVV7Tl9ONF6qBp5xMCw-W1i9Ltn8CP+0/Q-j1kCmlttMHdj72
 
 ### Auth
 POST {{base_url}}/TokenEndpoint
@@ -13,7 +10,7 @@ Authorization: Basic {{clientId}}:{{secretId}}
 grant_type=client_credentials
 
 ### reemplazar con lo que arriba se retorne
-@access_token=QV04iA_0UVmT77ScteufHQp/9qSWmD35A5_Y+UyjlbV_cnlrXr4-36K-/Fh09A0Ub_C+EL8EYsIX8bi3HhGN9Cfc95KIRmVSE7s+vtAzaQ/31LEA/wrgC=/9uu+zNQV04iA_0UVmT77ScteufHQp/9
+@access_token=cekM4vykruJt2UBgiFxKBh9Z0A6lUNx/1CJEvIq+zOfHDqIeoedfVDNtDXf0vndS+teu5yOxf0ZhwCiCp741gY=d5PT7DhiRykqiUH0a*FfdRMP4d39gehvCD_FnucekM4vykruJt2UBgiFxKBh9Z0A
 
 ###
 GET {{base_url}}/circuitoContableBean?activo=1
@@ -110,13 +107,6 @@ Content-Type: application/json
     }
   ]
 }
-
-### Paises
-GET {{base_url}}/paisBean?activo=1
-Content-Type: application/json
-Accept: application/json
-Authorization: Bearer {{access_token}}
-
 
 
 

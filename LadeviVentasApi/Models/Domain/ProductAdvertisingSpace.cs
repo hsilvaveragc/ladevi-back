@@ -5,20 +5,44 @@ namespace LadeviVentasApi.Models.Domain
 {
     public class ProductAdvertisingSpace : BaseEntity
     {
-        [Required, MinLength(2)] public string Name { get; set; }
+        [Required, MinLength(2)]
+        public string Name { get; set; }
+
         public Product? Product { get; set; }
-        [Required, FkCheck(TypeToCheck = typeof(Product))] public long ProductId { get; set; }
-        [Required] public double DollarPrice { get; set; }
-        [Required] public double Height { get; set; }
-        [Required] public double Width { get; set; }
+
+        [Required, FkCheck(TypeToCheck = typeof(Product))]
+        public long ProductId { get; set; }
+
+        public AdversitingSpaceGroup? AdversitingSpaceGroup { get; set; }
+
+        [FkCheck(TypeToCheck = typeof(AdversitingSpaceGroup))]
+        public long? AdversitingSpaceGroupId { get; set; }
+
+        [Required]
+        public double DollarPrice { get; set; }
+
+        [Required]
+        public double Height { get; set; }
+
+        [Required]
+        public double Width { get; set; }
+
         public bool Show { get; set; }
+
         public double DiscountForCheck { get; set; }
+
         public double DiscountForLoyalty { get; set; }
+
         public double DiscountForSameCountry { get; set; }
+
         public double DiscountForOtherCountry { get; set; }
+
         public double DiscountForAgency { get; set; }
+
         public ICollection<ProductAdvertisingSpaceVolumeDiscount> ProductAdvertisingSpaceVolumeDiscounts { get; set; }
+
         public ICollection<ProductAdvertisingSpaceLocationDiscount> ProductAdvertisingSpaceLocationDiscounts { get; set; }
+
         protected override IList<ValidationResult> PerformValidate(ValidationContext validationContext, ApplicationDbContext context, Lazy<ApplicationUser> applicationUser)
         {
             ProductAdvertisingSpaceVolumeDiscounts?.ToList().ForEach(x => x.ProductAdvertisingSpaceId = Id);

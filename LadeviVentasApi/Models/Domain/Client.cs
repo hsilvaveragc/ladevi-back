@@ -75,16 +75,6 @@ namespace LadeviVentasApi.Models.Domain
         public TaxCategory? TaxCategory { get; set; }
         [FkCheck(TypeToCheck = typeof(TaxCategory))] public long? TaxCategoryId { get; set; }
 
-        public bool ShouldSyncToXubioArgentina()
-        {
-            return !IsComtur && CountryId == 4;
-        }
-
-        public bool ShouldSyncToXubioComtur()
-        {
-            return IsComtur && BillingPointOfSale.Trim().TrimStart('0') == "99";
-        }
-
         protected override IList<ValidationResult> PerformValidate(ValidationContext validationContext, ApplicationDbContext context, Lazy<ApplicationUser> applicationUser)
         {
             return base.PerformValidate(validationContext, context, applicationUser)
@@ -99,13 +89,6 @@ namespace LadeviVentasApi.Models.Domain
         {
             try
             {
-                bool shouldValidateWithXubio = (!IsComtur && CountryId == 4) || (IsComtur && BillingPointOfSale == "99");
-
-                if (!shouldValidateWithXubio)
-                {
-                    return ValidationResult.Success; // No validar con Xubio
-                }
-
                 var xubioService = validationContext.GetService(typeof(XubioService)) as XubioService;
                 if (xubioService != null && !string.IsNullOrEmpty(BillingPointOfSale))
                 {

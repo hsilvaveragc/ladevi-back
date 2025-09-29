@@ -3,6 +3,7 @@ using System;
 using LadeviVentasApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LadeviVentasApi.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250925172357_AllowNullPublishingOrderId")]
+    partial class AllowNullPublishingOrderId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,37 +24,6 @@ namespace LadeviVentasApi.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.AdversitingSpaceGroup", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<bool?>("Deleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("DeletedDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("DeletedUser")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("ProductId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("AdversitingSpaceGroups");
-                });
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.AdvertisingSpaceLocationType", b =>
                 {
@@ -922,9 +894,6 @@ namespace LadeviVentasApi.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<long?>("AdversitingSpaceGroupId")
-                        .HasColumnType("bigint");
-
                     b.Property<bool?>("Deleted")
                         .HasColumnType("boolean");
 
@@ -969,8 +938,6 @@ namespace LadeviVentasApi.Data.Migrations
                         .HasColumnType("double precision");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AdversitingSpaceGroupId");
 
                     b.HasIndex("ProductId");
 
@@ -1869,17 +1836,6 @@ namespace LadeviVentasApi.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("LadeviVentasApi.Models.Domain.AdversitingSpaceGroup", b =>
-                {
-                    b.HasOne("LadeviVentasApi.Models.Domain.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Product");
-                });
-
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.ApplicationUser", b =>
                 {
                     b.HasOne("LadeviVentasApi.Models.Domain.ApplicationRole", "ApplicationRole")
@@ -2116,17 +2072,11 @@ namespace LadeviVentasApi.Data.Migrations
 
             modelBuilder.Entity("LadeviVentasApi.Models.Domain.ProductAdvertisingSpace", b =>
                 {
-                    b.HasOne("LadeviVentasApi.Models.Domain.AdversitingSpaceGroup", "AdversitingSpaceGroup")
-                        .WithMany()
-                        .HasForeignKey("AdversitingSpaceGroupId");
-
                     b.HasOne("LadeviVentasApi.Models.Domain.Product", "Product")
                         .WithMany("ProductAdvertisingSpaces")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("AdversitingSpaceGroup");
 
                     b.Navigation("Product");
                 });

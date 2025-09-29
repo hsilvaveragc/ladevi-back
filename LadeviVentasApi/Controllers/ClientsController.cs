@@ -194,7 +194,7 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
 
     if (onlyComtur)
     {
-      allClientsQuery = allClientsQuery.Where(c => c.IsComtur && c.BillingPointOfSale.Trim().TrimStart('0') == "99");
+      allClientsQuery = allClientsQuery.Where(c => c.IsComtur && c.BillingPointOfSale == "99");
     }
 
     if (onlyEnabled)
@@ -222,7 +222,7 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
     return Ok(allClientsOptions);
   }
 
-  [HttpPost("SyncXubioArgentinaNotComturClients")]
+  [HttpPost("SyncXubioClients")]
   [AllowAnonymous]
   public async Task<IActionResult> SyncXubioArgentinaNotComturClients()
   {
@@ -241,7 +241,7 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
 
       // Retrieve Argentina no comtur clients from database
       var dbClients = await Context.Clients
-          .Where(c => (!c.Deleted.HasValue || !c.Deleted.Value) && c.CountryId == 4 && !c.IsComtur && !c.XubioId.HasValue)
+          .Where(c => (!c.Deleted.HasValue || !c.Deleted.Value) && c.CountryId == 4 && !c.IsComtur)
           .ToListAsync();
 
       var dbTaxCategories = await Context.TaxCategories
@@ -300,96 +300,6 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
       {
         Mensaje = $"Sincronización completada. Se actualizaron {updatedCount} clientes.",
         TotalClientesXubio = argentinaXubioClients.Count,
-        ClientesActualizados = updatedCount,
-        DetalleClientesActualizados = updatedClients
-      });
-    }
-    catch (Exception ex)
-    {
-      return StatusCode(500, new { Mensaje = "Ocurrió un error durante la sincronización", Error = ex.Message });
-    }
-  }
-
-  [HttpPost("SyncXubioComturClients")]
-  [AllowAnonymous]
-  public async Task<IActionResult> SyncXubioComturClients()
-  {
-    try
-    {
-      // Get Comtur Xubio clients
-      var xubioClients = await this.xubioService.GetClientsAsync(true);
-
-      if (xubioClients == null)
-      {
-        return BadRequest("No se pudo obtener clientes de la API de Xubio");
-      }
-
-      // Filter clients
-      var comturXubioClients = xubioClients.Where(c => c.Pais != null && !string.IsNullOrEmpty(c.Cuit)).ToList();
-
-      // Get the cuit field whose value is equivalent to the database id
-      var clientDbIds = comturXubioClients.Select(x => x.Cuit.TrimStart('0')).ToList();
-
-      // Find clients by Id
-      var dbClients = await Context.Clients
-          .Where(c => !c.XubioId.HasValue && clientDbIds.Contains(c.Id.ToString()))
-          .ToListAsync();
-
-      var dbTaxCategories = await Context.TaxCategories
-          .Where(tc => !tc.Deleted.HasValue || !tc.Deleted.Value)
-          .ToListAsync();
-
-      int updatedCount = 0;
-      var updatedClients = new List<object>();
-
-      foreach (var comturXubioClient in comturXubioClients)
-      {
-        // Find matching client in database
-        var matchingClient = dbClients.FirstOrDefault(c => c.Id.ToString() == comturXubioClient.Cuit.TrimStart('0'));
-
-        if (matchingClient != null && matchingClient.XubioId != comturXubioClient.ClientId)
-        {
-          // Update XubioId
-          matchingClient.XubioId = comturXubioClient.ClientId;
-          matchingClient.TaxCategoryId = dbTaxCategories.SingleOrDefault(tc => tc.Code == comturXubioClient.CategoriaFiscal.Codigo)?.Id;
-          Context.Update(matchingClient);
-          updatedCount++;
-
-          updatedClients.Add(new
-          {
-            XubioClientId = comturXubioClient.ClientId,
-            ClientName = matchingClient.LegalName,
-            XubioName = comturXubioClient.Nombre,
-            XubioIdentification = comturXubioClient.Cuit
-          });
-        }
-      }
-
-      // Save changes to database
-      await Context.SaveChangesAsync();
-
-      #region Auditory
-      try
-      {
-        Auditory audit = new Auditory();
-        audit.Date = DateTime.Now;
-        audit.Entity = "Cliente";
-        audit.UserId = CurrentAppUser.Value.Id;
-        audit.User = CurrentAppUser.Value.FullName;
-        audit.AuditMessage = $"Sincronización con Xubio. Total clientes sincronizados: {updatedCount}";
-        Context.Add(audit);
-        await Context.SaveChangesAsync();
-      }
-      catch (Exception ex)
-      {
-        // Ignoramos errores en auditoría para no interrumpir el proceso principal
-      }
-      #endregion
-
-      return Ok(new
-      {
-        Mensaje = $"Sincronización completada. Se actualizaron {updatedCount} clientes.",
-        TotalClientesXubio = comturXubioClients.Count,
         ClientesActualizados = updatedCount,
         DetalleClientesActualizados = updatedClients
       });
@@ -583,28 +493,15 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
 
   private async Task ProcessXubioIntegration(Client clientDb)
   {
-    // Verificar si se debe sincronizar con Xubio
-    if (!ShouldSyncToXubio(clientDb))
-    {
-      return;
-    }
-
-    var identificationXubioValue = clientDb.ShouldSyncToXubioArgentina() ? clientDb.IdentificationValue : clientDb.Id.ToString().PadLeft(8, '0');
-
     // Verificar si el cliente ya existe en Xubio
-    var xubioClients = await xubioService.GetClientsAsync(clientDb.IsComtur, identificationXubioValue);
+    var xubioClients = await xubioService.GetClientsAsync(clientDb.IsComtur, clientDb.IdentificationValue);
 
     if (xubioClients != null && xubioClients.Any())
     {
-      if (clientDb.ShouldSyncToXubioComtur())
-      {
-        throw new ValidationExtensions.ValidationException("Ya existe un cliente en Xubio para el cliente que quiere crear.", new[] { "brandName" });
-      }
-
       // Cliente ya existe en Xubio
       var existingXubioClient = xubioClients.First();
 
-      // Verificar si ya existe un cliente local con ese XubioId
+      // MODIFICACIÓN: Verificar si ya existe un cliente local con ese XubioId
       var existingLocalClient = await Context.Clients
           .Where(c => c.XubioId == existingXubioClient.ClientId &&
                      c.Id != clientDb.Id && // Excluir el cliente actual
@@ -613,7 +510,7 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
 
       if (existingLocalClient != null)
       {
-        // En vez de lanzar error normal, lanzar error especial
+        // CAMBIO: En vez de lanzar error normal, lanzar error especial
         throw new ValidationExtensions.ValidationException(
             $"DUPLICATE_CUIT|{existingXubioClient.ClientId}|{existingLocalClient.LegalName}|{clientDb.IdentificationValue}",
             new[] { "identificationValue" });
@@ -663,12 +560,6 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
   // Método auxiliar para validar cambios en el CUIT
   private async Task ValidateIdentificationValueChange(Client clientToUpdate, long clientId)
   {
-    // Solo validar con Xubio si se debe sincronizar
-    if (!ShouldSyncToXubio(clientToUpdate))
-    {
-      return;
-    }
-
     // Verificar si el nuevo CUIT ya existe en Xubio
     var xubioClients = await xubioService.GetClientsAsync(clientToUpdate.IsComtur, clientToUpdate.IdentificationValue);
 
@@ -699,12 +590,6 @@ public class ClientsController : RestV2Controller<Client, ClientWritingDto>
       // (se podría crear en Xubio posteriormente si se requiere)
       clientToUpdate.XubioId = null;
     }
-  }
-
-  // Método auxiliar para determinar si se debe sincronizar con Xubio
-  private bool ShouldSyncToXubio(Client client)
-  {
-    return client.ShouldSyncToXubioArgentina() || client.ShouldSyncToXubioComtur();
   }
 
   // Método auxiliar para registrar auditoría

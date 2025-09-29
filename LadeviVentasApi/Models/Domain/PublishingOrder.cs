@@ -7,62 +7,34 @@ namespace LadeviVentasApi.Models.Domain
 {
     public class PublishingOrder : BaseEntity
     {
+        /* public Product Product { get; set; }
+        [Required, FkCheck(TypeToCheck = typeof(Product))] public long ProductId { get; set; } */
         public ProductEdition? ProductEdition { get; set; }
-
-        [Required, FkCheck(TypeToCheck = typeof(ProductEdition))]
-        public long ProductEditionId { get; set; }
-
+        [Required, FkCheck(TypeToCheck = typeof(ProductEdition))] public long ProductEditionId { get; set; }
         public bool Latent { get; set; }
-
         public Client? Client { get; set; }
-
-        [Required, FkCheck(TypeToCheck = typeof(Client))]
-        public long ClientId { get; set; }
-
+        [Required, FkCheck(TypeToCheck = typeof(Client))] public long ClientId { get; set; }
         public ApplicationUser? Seller { get; set; }
-
-        [FkCheck(TypeToCheck = typeof(ApplicationUser))]
-        public long SellerId { get; set; }
-
+        [FkCheck(TypeToCheck = typeof(ApplicationUser))] public long SellerId { get; set; }
         public Contract? Contract { get; set; }
-        [FkCheck(TypeToCheck = typeof(Contract))]
-        public long? ContractId { get; set; }
-
+        [FkCheck(TypeToCheck = typeof(Contract))] public long? ContractId { get; set; }
         //Ubicacion
         public AdvertisingSpaceLocationType? AdvertisingSpaceLocationType { get; set; }
-
-        [Required, FkCheck(TypeToCheck = typeof(AdvertisingSpaceLocationType))]
-        public long AdvertisingSpaceLocationTypeId { get; set; }
-
+        [Required, FkCheck(TypeToCheck = typeof(AdvertisingSpaceLocationType))] public long AdvertisingSpaceLocationTypeId { get; set; }
         //Tipo de Espacio
         public ProductAdvertisingSpace? ProductAdvertisingSpace { get; set; }
-
-        [Required, FkCheck(TypeToCheck = typeof(ProductAdvertisingSpace))]
-        public long ProductAdvertisingSpaceId { get; set; }
-
+        [Required, FkCheck(TypeToCheck = typeof(ProductAdvertisingSpace))] public long ProductAdvertisingSpaceId { get; set; }
         public string PageNumber { get; set; }
-
         public string InvoiceNumber { get; set; }
-
         public bool? PaidOut { get; set; }
-
         public double Quantity { get; set; }
-
         public string Observations { get; set; }
-
         public SoldSpace? SoldSpace { get; set; }
-
-        [FkCheck(TypeToCheck = typeof(SoldSpace))]
-        public long? SoldSpaceId { get; set; }
-
+        [FkCheck(TypeToCheck = typeof(SoldSpace))] public long? SoldSpaceId { get; set; }
         public DateTime? CreationDate { get; set; }
-
         public DateTime? LastUpdate { get; set; }
-
         public bool CanDelete { get { return ProductEdition != null && !ProductEdition.Closed; } }
-
         public string? XubioDocumentNumber { get; set; }
-
         public long? XubioTransactionId { get; set; }
 
         protected override IList<ValidationResult> PerformValidate(ValidationContext validationContext, ApplicationDbContext context, Lazy<ApplicationUser> applicationUser)
@@ -98,40 +70,20 @@ namespace LadeviVentasApi.Models.Domain
 
             // ===== 1. VALIDACIONES DE PERMISOS DE USUARIO =====
 
-            // BR: No se puede modificar  si la edición está abierta
-            if (Id != 0 && currentProductEdition.Closed)
+            // BR: Vendedores y supervisores NO pueden modificar
+            if (Id != 0 && (user.ApplicationRole.IsSeller() || user.ApplicationRole.IsSupervisor()))
+            {
+                throw new ValidationExtensions.ValidationException(
+                    "Vendedores y supervisores no pueden modificar la OP",
+                    new[] { nameof(currentProductEdition.ProductId) });
+            }
+
+            // BR: Administrador puede modificar solo si edición está abierta
+            if (Id != 0 && user.ApplicationRole.IsSuperuser() && currentProductEdition.Closed)
             {
                 throw new ValidationExtensions.ValidationException(
                     "No se puede modificar cuando la edición está cerrada",
                     new[] { nameof(ProductEditionId) });
-            }
-
-            if (Id != 0 && (user.ApplicationRole.IsSeller() || user.ApplicationRole.IsSupervisor()))
-            {
-                if (!string.IsNullOrWhiteSpace(oldOP.PageNumber))
-                {
-                    throw new ValidationExtensions.ValidationException("No tiene permisos para modificar la OP ya que tiene numero de página", new[] { nameof(this.PageNumber) });
-                }
-
-                // BR: Vendedores y supervisores NO pueden modificar nro de página.
-                if (oldOP.PageNumber != this.PageNumber)
-                {
-                    throw new ValidationExtensions.ValidationException("No tiene permisos para modificar el número de página", new[] { nameof(this.PageNumber) });
-                }
-
-                // BR: Vendedores y supervisores NO pueden modificar PaidOut ni InvoiceNumber en contratos Contra Publicación
-                if (currentContract.BillingCondition.IsAgainstPublication())
-                {
-                    if (oldOP.PaidOut != this.PaidOut)
-                    {
-                        throw new ValidationExtensions.ValidationException("No tiene permisos para modificar si la OP fue pagada o no", new[] { nameof(this.PaidOut) });
-                    }
-
-                    if (oldOP.InvoiceNumber != this.InvoiceNumber)
-                    {
-                        throw new ValidationExtensions.ValidationException("No tiene permisos para modificar el número de factura", new[] { nameof(this.InvoiceNumber) });
-                    }
-                }
             }
 
             // BR: Vendedor nacional solo puede trabajar con productos de su país
